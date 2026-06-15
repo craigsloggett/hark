@@ -2,13 +2,13 @@ name: hark
 options:
   bundleIdPrefix: com.craigsloggett
   deploymentTarget:
-    macOS: "26.0"
+    macOS: '26.0'
   createIntermediateGroups: true
 settings:
   base:
-    SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "0.0.1"
-    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: '6.0'
+    MARKETING_VERSION: 0.0.1
+    CURRENT_PROJECT_VERSION: '1'
     GENERATE_INFOPLIST_FILE: false
 targets:
   hark:
@@ -25,4 +25,4 @@ targets:
         CODE_SIGN_STYLE: Automatic
         ENABLE_HARDENED_RUNTIME: true
         LD_RUNPATH_SEARCH_PATHS:
-          - "@executable_path/../Frameworks"
+          - '@executable_path/../Frameworks'
