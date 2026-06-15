@@ -9,6 +9,12 @@ on:
 permissions:
   contents: read
 
+# Require Homebrew tap trust so installs honor only trusted taps (homebrew/core).
+# The runner's preinstalled aws/tap and azure/bicep are untrusted and ignored;
+# Homebrew's per-run notice about them is expected.
+env:
+  HOMEBREW_REQUIRE_TAP_TRUST: 1
+
 jobs:
   lint:
     name: Lint
