@@ -3,7 +3,6 @@ included:
   - Tests
 excluded:
   - build
-# SwiftFormat owns trailing commas (its default keeps them in multiline collections);
-# disable SwiftLint's opposing rule so the two tools do not fight.
+# SwiftFormat keeps trailing commas, so disable SwiftLint's opposing rule.
 disabled_rules:
   - trailing_comma
