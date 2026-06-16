@@ -8,6 +8,10 @@ on:
         description: The Xcode build configuration to build.
         type: string
         default: Debug
+      version:
+        description: The marketing version to stamp into the build.
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -30,7 +34,9 @@ jobs:
         shell: sh
         env:
           CONFIGURATION: ${{ inputs.configuration || 'Debug' }}
-        run: make test
+          VERSION: ${{ inputs.version }}
+        # PRs validate with tests (Debug); releases build the shippable app (Release).
+        run: if [ "${CONFIGURATION}" = "Release" ]; then make build; else make test; fi
       - name: Package App
         shell: sh
         env:

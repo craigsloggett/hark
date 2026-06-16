@@ -11,48 +11,60 @@ permissions:
   pull-requests: write
 
 jobs:
-  release:
-    name: GitHub
+  version:
+    name: Version
     runs-on: ubuntu-24.04
 
     outputs:
-      new-release-published: ${{ steps.release.outputs.new-release-published }}
-      new-release-version: ${{ steps.release.outputs.new-release-version }}
+      new-release-published: ${{ steps.dry-run.outputs.new_release_published }}
+      new-release-version: ${{ steps.dry-run.outputs.new_release_version }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Compute Version
+        id: dry-run
+        uses: cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90 # v6.0.0
+        with:
+          dry_run: true
+          extra_plugins: |
+            @semantic-release/git@10.0.1
+            conventional-changelog-conventionalcommits@9.3.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  build:
+    name: Build
+    needs: version
+    if: needs.version.outputs.new-release-published == 'true'
+    uses: ./.github/workflows/build.yml
+    with:
+      configuration: Release
+      version: ${{ needs.version.outputs.new-release-version }}
+
+  release:
+    name: GitHub
+    needs:
+      - version
+      - build
+    if: needs.version.outputs.new-release-published == 'true'
+    runs-on: ubuntu-24.04
+    steps:
       - name: Create a GitHub Release
         id: release
         uses: craigsloggett/create-github-release@afe4170133e10ece0944212d5f105035758ce840 # v1.0.24
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-
-  build:
-    name: Build
-    needs: release
-    if: needs.release.outputs.new-release-published == 'true'
-    uses: ./.github/workflows/build.yml
-    with:
-      configuration: Release
-
-  publish:
-    name: Attach Asset
-    needs:
-      - release
-      - build
-    if: needs.release.outputs.new-release-published == 'true'
-    runs-on: ubuntu-24.04
-    steps:
       - name: Download Artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: hark-app
-
       - name: Upload To Release
         shell: sh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.release.outputs.new-release-version }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.release.outputs.new-release-version }}
         run: gh release upload "v${VERSION}" hark.zip

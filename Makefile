@@ -1,6 +1,7 @@
 PROJECT       := hark
 SCHEME        := hark
 CONFIGURATION ?= Debug
+VERSION       ?=
 DERIVED_DATA  := build
 
 .DEFAULT_GOAL := build
@@ -12,7 +13,7 @@ generate:
 	xcodegen generate
 
 build: generate
-	xcodebuild -project $(PROJECT).xcodeproj -scheme $(SCHEME) -configuration $(CONFIGURATION) -derivedDataPath $(DERIVED_DATA) build
+	xcodebuild -project $(PROJECT).xcodeproj -scheme $(SCHEME) -configuration $(CONFIGURATION) -derivedDataPath $(DERIVED_DATA) $(if $(VERSION),MARKETING_VERSION=$(VERSION)) build
 
 test: generate
 	xcodebuild -project $(PROJECT).xcodeproj -scheme $(SCHEME) -configuration $(CONFIGURATION) -derivedDataPath $(DERIVED_DATA) test
