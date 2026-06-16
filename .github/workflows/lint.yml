@@ -5,9 +5,15 @@ on: pull_request
 permissions:
   contents: read
 
-# Supply-chain hardening: install only from trusted Homebrew taps.
+# Lint only the latest commit on a PR; cancel superseded runs.
+concurrency:
+  group: lint-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+# Harden and speed up Homebrew: trusted taps only, and skip the slow pre-install auto-update.
 env:
   HOMEBREW_REQUIRE_TAP_TRUST: 1
+  HOMEBREW_NO_AUTO_UPDATE: 1
 
 jobs:
   swift:

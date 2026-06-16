@@ -16,9 +16,15 @@ on:
 permissions:
   contents: read
 
-# Supply-chain hardening: install only from trusted Homebrew taps.
+# Validate only the latest commit on a PR; never cancel a release build.
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Harden and speed up Homebrew: trusted taps only, and skip the slow pre-install auto-update.
 env:
   HOMEBREW_REQUIRE_TAP_TRUST: 1
+  HOMEBREW_NO_AUTO_UPDATE: 1
 
 jobs:
   build:
@@ -37,12 +43,15 @@ jobs:
           VERSION: ${{ inputs.version }}
         # PRs validate with tests (Debug); releases build the shippable app (Release).
         run: if [ "${CONFIGURATION}" = "Release" ]; then make build; else make test; fi
+      # Only the release path consumes the artifact; PRs just build and test.
       - name: Package App
+        if: ${{ inputs.configuration == 'Release' }}
         shell: sh
         env:
-          CONFIGURATION: ${{ inputs.configuration || 'Debug' }}
+          CONFIGURATION: ${{ inputs.configuration }}
         run: ditto -c -k --keepParent "build/Build/Products/${CONFIGURATION}/hark.app" hark.zip
       - name: Upload Artifact
+        if: ${{ inputs.configuration == 'Release' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: hark-app
