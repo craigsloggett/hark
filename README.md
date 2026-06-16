@@ -47,7 +47,9 @@ make format   # apply SwiftFormat in place
 
 ## Continuous Integration
 
-`.github/workflows/ci.yml` runs lint and build-and-test on every push to `main` and every pull request, on a `macos-26` runner. Dependabot keeps the pinned GitHub Actions current.
+Pull requests run `lint.yml` (SwiftFormat and SwiftLint) and `build.yml` (build, test, and upload the app as an artifact) on a `macos-26` runner, and `pre-release.yml` enforces a Conventional Commits pull request title.
+
+Merging to `main` runs `release.yml`, which uses `create-github-release` to cut a release from the Conventional Commit history. When a release is published it builds the `Release` configuration via `build.yml` and attaches the zipped app to the GitHub Release. Dependabot keeps the pinned actions current.
 
 ## Layout
 
@@ -57,7 +59,7 @@ make format   # apply SwiftFormat in place
 - `Resources/Info.plist`: app metadata and the microphone usage string
 - `hark.entitlements`: app sandbox and microphone entitlement
 - `.swiftformat`, `.swiftlint.yml`: formatter and linter configuration
-- `.github/`: CI workflow, Dependabot, and code owners
+- `.github/`: lint, build, and release workflows, Dependabot, and code owners
 - `Makefile`: generate, build, test, run, lint, format, and clean targets
 
 ## Status

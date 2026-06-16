@@ -1,0 +1,43 @@
+name: Build
+
+on:
+  pull_request:
+  workflow_call:
+    inputs:
+      configuration:
+        description: The Xcode build configuration to build.
+        type: string
+        default: Debug
+
+permissions:
+  contents: read
+
+# Supply-chain hardening: install only from trusted Homebrew taps.
+env:
+  HOMEBREW_REQUIRE_TAP_TRUST: 1
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Install XcodeGen
+        shell: sh
+        run: brew install xcodegen
+      - name: Build And Test
+        shell: sh
+        env:
+          CONFIGURATION: ${{ inputs.configuration || 'Debug' }}
+        run: make test
+      - name: Package App
+        shell: sh
+        env:
+          CONFIGURATION: ${{ inputs.configuration || 'Debug' }}
+        run: ditto -c -k --keepParent "build/Build/Products/${CONFIGURATION}/hark.app" hark.zip
+      - name: Upload Artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hark-app
+          path: hark.zip

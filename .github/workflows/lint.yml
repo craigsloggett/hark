@@ -1,10 +1,6 @@
-name: CI
+name: Lint
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
+on: pull_request
 
 permissions:
   contents: read
@@ -14,8 +10,8 @@ env:
   HOMEBREW_REQUIRE_TAP_TRUST: 1
 
 jobs:
-  lint:
-    name: Lint
+  swift:
+    name: Swift
     runs-on: macos-26
     steps:
       - name: Checkout
@@ -29,15 +25,3 @@ jobs:
       - name: Lint
         shell: sh
         run: swiftlint lint --strict
-  build:
-    name: Build
-    runs-on: macos-26
-    steps:
-      - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - name: Install XcodeGen
-        shell: sh
-        run: brew install xcodegen
-      - name: Build And Test
-        shell: sh
-        run: make test
