@@ -19,7 +19,7 @@ test: generate
 	xcodebuild -project $(PROJECT).xcodeproj -scheme $(SCHEME) -configuration $(CONFIGURATION) -derivedDataPath $(DERIVED_DATA) test
 
 run: build
-	open $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/$(PROJECT).app
+	$(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/$(PROJECT).app/Contents/MacOS/$(PROJECT)
 
 open: generate
 	open $(PROJECT).xcodeproj
