@@ -5,7 +5,7 @@ on:
   workflow_call:
     inputs:
       configuration:
-        description: The Xcode build configuration to build.
+        description: The Xcode build configuration to build (Debug or Release).
         type: string
         default: Debug
       version:
