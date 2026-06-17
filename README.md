@@ -30,6 +30,8 @@ make run
 
 On first launch, grant microphone access when prompted. The first recording also prompts for system audio access (shown as the purple recording indicator, not screen recording). Each recording creates a timestamped `hark-<timestamp>/` folder in the app's Documents container holding `mic.wav` (your microphone) and `system.wav` (everything you hear).
 
+For clean system audio, use a non-Bluetooth microphone. The tap captures only what the output device renders, so using a Bluetooth headset as both the microphone and the output switches it into the low-quality HFP call mode, which starves the system audio capture.
+
 ## Test
 
 ```sh
