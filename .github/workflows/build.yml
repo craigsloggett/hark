@@ -16,12 +16,12 @@ on:
 permissions:
   contents: read
 
-# Validate only the latest commit on a PR; never cancel a release build.
+# Cancel superseded PR runs, but never a release build.
 concurrency:
   group: build-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Harden and speed up Homebrew: trusted taps only, and skip the slow pre-install auto-update.
+# Supply-chain hardening: install only from trusted Homebrew taps.
 env:
   HOMEBREW_REQUIRE_TAP_TRUST: 1
   HOMEBREW_NO_AUTO_UPDATE: 1
@@ -43,7 +43,7 @@ jobs:
           VERSION: ${{ inputs.version }}
         # PRs validate with tests (Debug); releases build the shippable app (Release).
         run: if [ "${CONFIGURATION}" = "Release" ]; then make build; else make test; fi
-      # Only the release path consumes the artifact; PRs just build and test.
+      # Only the release job consumes this artifact.
       - name: Package App
         if: ${{ inputs.configuration == 'Release' }}
         shell: sh
