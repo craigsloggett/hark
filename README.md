@@ -28,9 +28,9 @@ make open
 make run
 ```
 
-On first launch, grant microphone access when prompted. The first recording also prompts for system audio access (shown as the purple recording indicator, not screen recording). Each recording creates a timestamped `hark-<timestamp>/` folder in the app's Documents container holding `mic.wav` (your microphone) and `system.wav` (everything you hear).
+On first launch, grant microphone access when prompted. The first recording also prompts for system audio access (shown as the purple recording indicator, not screen recording). Each recording creates a timestamped `hark-<timestamp>/` folder in the app's Documents container holding `mic.wav` (your microphone) and `system.wav` (everything you hear). Both are 16 kHz mono, the format diarized transcription expects.
 
-For clean system audio, use a non-Bluetooth microphone. The tap captures only what the output device renders, so using a Bluetooth headset as both the microphone and the output switches it into the low-quality HFP call mode, which starves the system audio capture.
+System audio is captured with a private, tap-only aggregate device. Recording stays full-duration and correct-speed regardless of the output device or its sample-rate changes, including a Bluetooth headset in HFP call mode (the same headset used as both microphone and output). The tap captures the system mix independent of the output device's link rate, and every buffer is resampled to the canonical 16 kHz.
 
 ## Test
 

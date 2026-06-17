@@ -74,7 +74,7 @@ final class AudioRecorder {
 
     private static let micSettings: [String: Any] = [
         AVFormatIDKey: Int(kAudioFormatLinearPCM),
-        AVSampleRateKey: 48000.0,
+        AVSampleRateKey: 16000.0,
         AVNumberOfChannelsKey: 1,
         AVLinearPCMBitDepthKey: 16,
         AVLinearPCMIsFloatKey: false,
