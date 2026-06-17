@@ -47,9 +47,9 @@ make format   # apply SwiftFormat in place
 
 ## Continuous Integration
 
-Pull requests run `lint.yml` (SwiftFormat and SwiftLint) and `build.yml` (build, test, and upload the app as an artifact) on a `macos-26` runner, and `pre-release.yml` enforces a Conventional Commits pull request title.
+Pull requests run `lint.yml` (SwiftFormat and SwiftLint) and `test.yml` (build and test) on a `macos-26` runner, and `pre-release.yml` enforces a Conventional Commits pull request title.
 
-Merging to `main` runs `release.yml`. It first computes the next version from the Conventional Commit history with a semantic-release dry run. If a release is warranted, it builds the `Release` configuration via `build.yml` with that version stamped into the app, and only then does `create-github-release` cut the tag and GitHub Release, to which the zipped app is attached. Building before the release is cut means a failed build never leaves a version-bumped release without its artifact. The attached `hark.zip` is unsigned and intended for distribution via a Homebrew cask (maintained separately), which clears Gatekeeper quarantine on install. Dependabot keeps the pinned actions current.
+Merging to `main` runs `release.yml`. It first computes the next version from the Conventional Commit history with a semantic-release dry run. If a release is warranted, it builds the `Release` configuration with that version stamped into the app, and only then does `create-github-release` cut the tag and GitHub Release, to which the zipped app is attached. Building before the release is cut means a failed build never leaves a version-bumped release without its artifact. The attached `hark.zip` is unsigned and intended for distribution via a Homebrew cask (maintained separately), which clears Gatekeeper quarantine on install. Dependabot keeps the pinned actions current.
 
 ## Layout
 
@@ -59,7 +59,7 @@ Merging to `main` runs `release.yml`. It first computes the next version from th
 - `Resources/Info.plist`: app metadata and the microphone usage string
 - `hark.entitlements`: app sandbox and microphone entitlement
 - `.swiftformat`, `.swiftlint.yml`: formatter and linter configuration
-- `.github/`: lint, build, and release workflows, Dependabot, and code owners
+- `.github/`: lint, test, and release workflows, Dependabot, and code owners
 - `Makefile`: generate, build, test, run, lint, format, and clean targets
 
 ## Status
