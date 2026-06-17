@@ -16,25 +16,16 @@ jobs:
     runs-on: ubuntu-24.04
 
     outputs:
-      new-release-published: ${{ steps.dry-run.outputs.new_release_published }}
-      new-release-version: ${{ steps.dry-run.outputs.new_release_version }}
+      new-release-published: ${{ steps.dry-run.outputs.new-release-published }}
+      new-release-version: ${{ steps.dry-run.outputs.new-release-version }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          fetch-depth: 0
-
       - name: Compute Version
         id: dry-run
-        uses: cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90 # v6.0.0
+        uses: craigsloggett/create-github-release@ca381e65d8d9bc17c1ce58c4bd8c54d8381d064b # v1.1.0
         with:
-          dry_run: true
-          extra_plugins: |
-            @semantic-release/git@10.0.1
-            conventional-changelog-conventionalcommits@9.3.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          dry-run: true
 
   build:
     name: Build
@@ -81,7 +72,7 @@ jobs:
     steps:
       - name: Create a GitHub Release
         id: release
-        uses: craigsloggett/create-github-release@afe4170133e10ece0944212d5f105035758ce840 # v1.0.24
+        uses: craigsloggett/create-github-release@ca381e65d8d9bc17c1ce58c4bd8c54d8381d064b # v1.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
