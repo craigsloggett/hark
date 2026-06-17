@@ -20,7 +20,7 @@ struct ContentView: View {
             .controlSize(.large)
             .tint(recorder.isRecording ? Color.red : Color.accentColor)
 
-            if let url = recorder.lastRecordingURL {
+            if let url = recorder.lastSessionURL {
                 Text("Saved \(url.lastPathComponent)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
