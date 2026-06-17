@@ -9,7 +9,6 @@ concurrency:
   group: lint-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
-# Supply-chain hardening: install only from trusted Homebrew taps.
 env:
   HOMEBREW_REQUIRE_TAP_TRUST: 1
   HOMEBREW_NO_AUTO_UPDATE: 1

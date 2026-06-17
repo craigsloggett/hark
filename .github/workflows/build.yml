@@ -21,7 +21,6 @@ concurrency:
   group: build-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Supply-chain hardening: install only from trusted Homebrew taps.
 env:
   HOMEBREW_REQUIRE_TAP_TRUST: 1
   HOMEBREW_NO_AUTO_UPDATE: 1
