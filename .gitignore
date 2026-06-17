@@ -5,6 +5,9 @@
 build/
 DerivedData/
 
+# Packaged release artifact
+/hark.zip
+
 # Xcode user state
 xcuserdata/
 *.xcuserstate

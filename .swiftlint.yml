@@ -1,0 +1,8 @@
+included:
+  - Sources
+  - Tests
+excluded:
+  - build
+# SwiftFormat keeps trailing commas, so disable SwiftLint's opposing rule.
+disabled_rules:
+  - trailing_comma

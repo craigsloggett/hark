@@ -1,0 +1,30 @@
+name: Test
+
+on: pull_request
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  HOMEBREW_REQUIRE_TAP_TRUST: 1
+  HOMEBREW_NO_AUTO_UPDATE: 1
+
+jobs:
+  xcode:
+    name: Xcode
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Install XcodeGen
+        shell: sh
+        run: brew install xcodegen
+
+      - name: Test
+        shell: sh
+        run: make test

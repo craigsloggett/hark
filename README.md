@@ -6,7 +6,7 @@ A minimal SwiftUI macOS app for recording meetings.
 
 - macOS 26 or later
 - Xcode 26 (provides the macOS 26 SDK and `xcodebuild`)
-- XcodeGen (`brew install xcodegen`)
+- XcodeGen, SwiftFormat, SwiftLint (`brew install xcodegen swiftformat swiftlint`)
 
 ## Build
 
@@ -30,13 +30,30 @@ make run
 
 On first launch, grant microphone access when prompted. Recordings are written as timestamped `.m4a` files in the app's Documents container.
 
+## Test
+
+```sh
+make test
+```
+
+Tests use the Swift Testing framework and live in `Tests/`.
+
+## Lint and Format
+
+```sh
+make lint     # check formatting and run SwiftLint
+make format   # apply SwiftFormat in place
+```
+
 ## Layout
 
 - `project.yml`: XcodeGen project specification
 - `Sources/`: app entry point, view, and the microphone recorder
+- `Tests/`: Swift Testing unit tests
 - `Resources/Info.plist`: app metadata and the microphone usage string
 - `hark.entitlements`: app sandbox and microphone entitlement
-- `Makefile`: generate, build, run, and clean targets
+- `.swiftformat`, `.swiftlint.yml`: formatter and linter configuration
+- `Makefile`: generate, build, test, run, lint, format, and clean targets
 
 ## Status
 

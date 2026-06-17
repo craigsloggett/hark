@@ -16,6 +16,9 @@ targets:
     platform: macOS
     sources:
       - Sources
+    scheme:
+      testTargets:
+        - harkTests
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.craigsloggett.hark
@@ -26,3 +29,14 @@ targets:
         ENABLE_HARDENED_RUNTIME: true
         LD_RUNPATH_SEARCH_PATHS:
           - '@executable_path/../Frameworks'
+  harkTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests
+    dependencies:
+      - target: hark
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.craigsloggett.harkTests
+        GENERATE_INFOPLIST_FILE: true
