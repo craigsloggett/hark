@@ -48,7 +48,8 @@ struct TranscriptionService {
             .map { TranscriptSegment(start: $0.start, end: $0.end, speaker: .you, text: $0.text) }
 
         let remoteUtterances = try await transcribe(fileURL: systemURL, locale: supported)
-        let turns = try await diarizer.turns(in: systemURL)
+        // Diarization only labels remote utterances; skip it when there are none.
+        let turns = remoteUtterances.isEmpty ? [] : try await diarizer.turns(in: systemURL)
         let speakers = SpeakerAttribution.remoteSpeakers(for: turns)
         let them = remoteUtterances.map { utterance in
             // No diarization (e.g. a silent track) collapses to a single "Speaker 1".
@@ -93,6 +94,8 @@ struct TranscriptionService {
         } catch {
             throw TranscriptionError.unreadableAudio(fileURL)
         }
+        // The analyzer's results stream never finishes for an empty track.
+        guard audioFile.length > 0 else { return [] }
 
         let transcriber = Self.makeTranscriber(locale: locale)
         let analyzer = SpeechAnalyzer(modules: [transcriber])
@@ -110,17 +113,31 @@ struct TranscriptionService {
         return utterances
     }
 
-    /// Downloads the locale's speech model if it isn't already installed. A nil
-    /// installation request means the assets are already present.
+    /// Installs the locale's speech model if needed, then reserves it: `SpeechAnalyzer`
+    /// transcribes only reserved locales, not merely installed ones.
     private func ensureModel(for locale: Locale) async throws {
         let installed = await SpeechTranscriber.installedLocales
             .contains { $0.identifier(.bcp47) == locale.identifier(.bcp47) }
-        guard !installed else { return }
-
-        let transcriber = Self.makeTranscriber(locale: locale)
-        if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-            try await request.downloadAndInstall()
+        if !installed {
+            let transcriber = Self.makeTranscriber(locale: locale)
+            if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+                try await request.downloadAndInstall()
+            }
         }
+        try await reserve(locale)
+    }
+
+    /// Reserves `locale` with `AssetInventory` if it isn't already, freeing the oldest
+    /// reservation first when the per-app limit is reached.
+    private func reserve(_ locale: Locale) async throws {
+        let bcp47 = locale.identifier(.bcp47)
+        let reserved = await AssetInventory.reservedLocales
+        guard !reserved.contains(where: { $0.identifier(.bcp47) == bcp47 }) else { return }
+        if try await AssetInventory.reserve(locale: locale) { return }
+        if let oldest = reserved.first {
+            _ = await AssetInventory.release(reservedLocale: oldest)
+        }
+        _ = try await AssetInventory.reserve(locale: locale)
     }
 
     private static func makeTranscriber(locale: Locale) -> SpeechTranscriber {
