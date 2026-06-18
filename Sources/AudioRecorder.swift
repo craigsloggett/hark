@@ -2,15 +2,25 @@ import AVFoundation
 import Foundation
 import Observation
 import OSLog
+import Speech
 
 @MainActor
 @Observable
 final class AudioRecorder {
+    enum TranscriptionState: Equatable {
+        case idle
+        case running
+        case finished(URL)
+        case failed(String)
+    }
+
     private(set) var isRecording = false
     private(set) var lastSessionURL: URL?
+    private(set) var transcriptionState = TranscriptionState.idle
 
     private var micRecorder: AVAudioRecorder?
     private let systemTap = SystemAudioTap()
+    private let transcriber = TranscriptionService()
     private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "AudioRecorder")
 
     func toggle() {
@@ -38,6 +48,36 @@ final class AudioRecorder {
         isRecording = false
     }
 
+    func transcribeLastSession() {
+        guard !isRecording, transcriptionState != .running, let session = lastSessionURL else { return }
+        transcriptionState = .running
+        Task {
+            guard await requestSpeechAccess() else {
+                logger.error("Speech recognition access denied")
+                transcriptionState = .failed(
+                    "Speech recognition access is off. Enable it in "
+                        + "System Settings › Privacy & Security › Speech Recognition."
+                )
+                return
+            }
+            do {
+                let transcript = try await transcriber.transcribeSession(at: session)
+                transcriptionState = try .finished(transcriber.write(transcript, to: session))
+            } catch {
+                logger.error("Transcription failed: \(error, privacy: .public)")
+                transcriptionState = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func requestSpeechAccess() async -> Bool {
+        await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { status in
+                continuation.resume(returning: status == .authorized)
+            }
+        }
+    }
+
     private func beginRecording() {
         guard let documents = FileManager.default
             .urls(for: .documentDirectory, in: .userDomainMask).first
@@ -63,6 +103,7 @@ final class AudioRecorder {
 
             self.micRecorder = micRecorder
             lastSessionURL = session
+            transcriptionState = .idle
             isRecording = true
         } catch {
             logger.error("Failed to start recording: \(error, privacy: .public)")
