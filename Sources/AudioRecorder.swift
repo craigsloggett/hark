@@ -52,7 +52,6 @@ final class AudioRecorder {
                 return
             }
 
-            // The first capture surfaces the system-audio recording prompt; the mic is already running by then.
             try systemTap.start(writingTo: session.appendingPathComponent("system.wav"))
 
             self.micRecorder = micRecorder

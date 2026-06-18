@@ -45,17 +45,14 @@ final class SystemAudioTap: @unchecked Sendable {
     private let ioQueue = DispatchQueue(label: "com.craigsloggett.hark.system-audio-tap", qos: .userInitiated)
     private let controlQueue = DispatchQueue(label: "com.craigsloggett.hark.system-audio-tap.control")
 
-    // Read by the IOProc on ioQueue; written from controlQueue only under ioQueue.sync.
     private var file: AVAudioFile?
     private var converter: AVAudioConverter?
     private var inputFormat: AVAudioFormat?
 
-    // Owned by controlQueue.
     private var tapID = AudioObjectID(kAudioObjectUnknown)
     private var aggregateDeviceID = AudioObjectID(kAudioObjectUnknown)
     private var ioProcID: AudioDeviceIOProcID?
 
-    // Touched on the calling thread in start()/stop(); the listener fires on controlQueue.
     private var outputDeviceID = AudioObjectID(kAudioObjectUnknown)
     private var rateListener: AudioObjectPropertyListenerBlock?
     private var nominalSampleRateAddress = AudioObjectPropertyAddress(
@@ -75,8 +72,6 @@ final class SystemAudioTap: @unchecked Sendable {
 
     /// Begins capturing system audio to `url`. The first call triggers the system-audio recording permission prompt.
     func start(writingTo url: URL) throws {
-        // Opened once at the canonical rate and kept open across tap rebuilds, so appended frames always
-        // describe the same timeline.
         file = try AVAudioFile(
             forWriting: url,
             settings: Self.canonicalFormat.settings,
@@ -95,7 +90,7 @@ final class SystemAudioTap: @unchecked Sendable {
         stopActivityTimer()
         removeRateListener()
         controlQueue.sync { teardownCaptureChain() }
-        // The device is stopped, so no further callbacks fire; draining the queue lets any in-flight write finish.
+
         ioQueue.sync {
             file = nil
             converter = nil
@@ -126,7 +121,6 @@ final class SystemAudioTap: @unchecked Sendable {
         guard status == noErr, let ioProcID else { throw Failure.ioProcCreationFailed(status) }
         self.ioProcID = ioProcID
 
-        // Publish before the device starts so the first callback already sees a matching format and converter.
         ioQueue.sync {
             self.inputFormat = tapFormat
             self.converter = converter
@@ -190,9 +184,6 @@ final class SystemAudioTap: @unchecked Sendable {
         guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: Self.canonicalFormat, frameCapacity: capacity)
         else { return }
 
-        // Feed this one buffer, then report no-more-data so the resampler keeps its state for the next callback.
-        // convert(to:error:withInputFrom:) invokes this block synchronously and never escapes it, so these
-        // bindings stay on the calling thread despite the block's @Sendable requirement.
         nonisolated(unsafe) let input = inputBuffer
         nonisolated(unsafe) var suppliedInput = false
         var conversionError: NSError?
@@ -231,8 +222,6 @@ final class SystemAudioTap: @unchecked Sendable {
     // MARK: - Rate-change listener
 
     private func registerRateListener() {
-        // A mid-session change to the output device's sample rate alters the tap format, so rebuild the chain to
-        // re-read it and rebuild the converter.
         let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             self?.handleRateChange()
         }
@@ -330,9 +319,6 @@ extension SystemAudioTap {
     }
 
     private func createAggregateDevice(tapUUID: UUID) throws {
-        // Tap-only aggregate: the global tap already carries the default output's audio and provides timing, so no
-        // sub-device is needed. Adding the output device as a sub-device makes the aggregate open it for IO,
-        // which can stall capture on an unreliable output clock such as a Bluetooth headset in HFP.
         let aggregate: [String: Any] = [
             kAudioAggregateDeviceNameKey: "hark-system-tap",
             kAudioAggregateDeviceUIDKey: UUID().uuidString,
