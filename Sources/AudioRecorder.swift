@@ -1,14 +1,17 @@
 import AVFoundation
 import Foundation
 import Observation
+import OSLog
 
 @MainActor
 @Observable
 final class AudioRecorder {
     private(set) var isRecording = false
-    private(set) var lastRecordingURL: URL?
+    private(set) var lastSessionURL: URL?
 
-    private var recorder: AVAudioRecorder?
+    private var micRecorder: AVAudioRecorder?
+    private let systemTap = SystemAudioTap()
+    private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "AudioRecorder")
 
     func toggle() {
         if isRecording {
@@ -21,7 +24,7 @@ final class AudioRecorder {
     func start() {
         Task {
             guard await AVCaptureDevice.requestAccess(for: .audio) else {
-                print("Microphone access denied")
+                logger.error("Microphone access denied")
                 return
             }
             beginRecording()
@@ -29,37 +32,58 @@ final class AudioRecorder {
     }
 
     func stop() {
-        recorder?.stop()
-        lastRecordingURL = recorder?.url
-        recorder = nil
+        micRecorder?.stop()
+        systemTap.stop()
+        micRecorder = nil
         isRecording = false
     }
 
     private func beginRecording() {
-        let settings: [String: Any] = [
-            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 44100.0,
-            AVNumberOfChannelsKey: 1,
-            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
-        ]
+        guard let documents = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask).first
+        else {
+            logger.error("No documents directory available")
+            return
+        }
+        let session = documents
+            .appendingPathComponent(Self.sessionName(for: Date()), isDirectory: true)
         do {
-            let recorder = try AVAudioRecorder(url: Self.makeOutputURL(), settings: settings)
-            guard recorder.record() else {
-                print("Recorder failed to start")
+            try FileManager.default.createDirectory(at: session, withIntermediateDirectories: true)
+
+            let micRecorder = try AVAudioRecorder(
+                url: session.appendingPathComponent("mic.wav"),
+                settings: Self.micSettings
+            )
+            guard micRecorder.record() else {
+                logger.error("Microphone recorder failed to start")
                 return
             }
-            self.recorder = recorder
+
+            try systemTap.start(writingTo: session.appendingPathComponent("system.wav"))
+
+            self.micRecorder = micRecorder
+            lastSessionURL = session
             isRecording = true
         } catch {
-            print("Failed to start recording: \(error)")
+            logger.error("Failed to start recording: \(error, privacy: .public)")
+            micRecorder?.stop()
+            systemTap.stop()
+            micRecorder = nil
         }
     }
 
-    private static func makeOutputURL() -> URL {
-        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    static func sessionName(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmmss"
-        let name = "hark-\(formatter.string(from: Date())).m4a"
-        return directory.appendingPathComponent(name)
+        return "hark-\(formatter.string(from: date))"
     }
+
+    private static let micSettings: [String: Any] = [
+        AVFormatIDKey: Int(kAudioFormatLinearPCM),
+        AVSampleRateKey: 16000.0,
+        AVNumberOfChannelsKey: 1,
+        AVLinearPCMBitDepthKey: 16,
+        AVLinearPCMIsFloatKey: false,
+        AVLinearPCMIsBigEndianKey: false,
+    ]
 }

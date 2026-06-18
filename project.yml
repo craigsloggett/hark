@@ -10,6 +10,8 @@ settings:
     MARKETING_VERSION: 0.0.1
     CURRENT_PROJECT_VERSION: '1'
     GENERATE_INFOPLIST_FILE: false
+    DEAD_CODE_STRIPPING: true
+    ENABLE_USER_SCRIPT_SANDBOXING: true
 targets:
   hark:
     type: application
