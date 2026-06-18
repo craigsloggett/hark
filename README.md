@@ -28,7 +28,9 @@ make open
 make run
 ```
 
-On first launch, grant microphone access when prompted. The first recording also prompts for system audio access (shown as the purple recording indicator, not screen recording). Each recording creates a timestamped `hark-<timestamp>/` folder in the app's Documents container holding `mic.wav` (your microphone) and `system.wav` (everything you hear). Both are 16 kHz mono, the format diarized transcription expects.
+On first launch, grant microphone access when prompted. The first recording also prompts for system audio access (shown as the purple recording indicator, not screen recording). Each recording creates a timestamped `hark-<timestamp>/` folder in the app's Documents container holding `mic.wav` (your microphone) and `system.wav` (everything you hear), both 16 kHz mono.
+
+After a recording, click Transcribe to transcribe that session. Transcription runs on-device with Apple's `SpeechAnalyzer`; the first run downloads the speech model (needs network once) and prompts for speech recognition access. It writes `transcript.txt` and `transcript.json` into the session folder, merging both tracks into one timeline labeled You (your microphone) and Them (everyone you hear).
 
 System audio is captured with a private, tap-only aggregate device. Recording stays full-duration and correct-speed regardless of the output device or its sample-rate changes, including a Bluetooth headset in HFP call mode (the same headset used as both microphone and output). The tap captures the system mix independent of the output device's link rate, and every buffer is resampled to the canonical 16 kHz.
 
@@ -50,13 +52,13 @@ make format   # apply SwiftFormat in place
 ## Layout
 
 - `project.yml`: XcodeGen project specification
-- `Sources/`: app entry point, view, the dual-stream recorder, and the Core Audio system audio tap
+- `Sources/`: app entry point, view, the dual-stream recorder, the Core Audio system audio tap, and on-device transcription
 - `Tests/`: Swift Testing unit tests
-- `Resources/Info.plist`: app metadata and the microphone and system audio usage strings
-- `hark.entitlements`: app sandbox and audio input entitlement
+- `Resources/Info.plist`: app metadata and the microphone, system audio, and speech recognition usage strings
+- `hark.entitlements`: app sandbox, audio input, and network client (for the first transcription model download) entitlements
 - `.swiftformat`, `.swiftlint.yml`: formatter and linter configuration
 - `Makefile`: generate, build, test, run, lint, format, and clean targets
 
 ## Status
 
-Hark records your microphone and the system audio you hear as two synchronized files per session, using a Core Audio process tap for system audio. Producing a diarized transcription from these recordings is planned.
+Hark records your microphone and the system audio you hear as two synchronized files per session, using a Core Audio process tap for system audio, then transcribes them on-device into one transcript labeled You and Them. Telling individual remote speakers apart within the system track is planned.

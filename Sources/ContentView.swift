@@ -24,9 +24,44 @@ struct ContentView: View {
                 Text("Saved \(url.lastPathComponent)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                if !recorder.isRecording {
+                    Button("Transcribe") {
+                        recorder.transcribeLastSession()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .disabled(recorder.transcriptionState == .running)
+
+                    transcriptionStatus
+                }
             }
         }
         .padding(40)
         .frame(minWidth: 320, minHeight: 280)
+    }
+
+    @ViewBuilder
+    private var transcriptionStatus: some View {
+        switch recorder.transcriptionState {
+        case .idle:
+            EmptyView()
+        case .running:
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Transcribing…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        case let .finished(url):
+            Text("Saved \(url.lastPathComponent)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case let .failed(message):
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.red)
+        }
     }
 }
