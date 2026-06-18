@@ -71,8 +71,10 @@ final class AudioRecorder {
     }
 
     private func requestSpeechAccess() async -> Bool {
+        // requestAuthorization calls back on a background queue, so the handler must be
+        // non-isolated; an inferred @MainActor closure traps with a main-thread assertion.
         await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { status in
+            SFSpeechRecognizer.requestAuthorization { @Sendable status in
                 continuation.resume(returning: status == .authorized)
             }
         }
