@@ -28,6 +28,29 @@ struct TranscriptTests {
         #expect(merged.segments.map(\.speaker) == [.you, .remote(1), .you])
     }
 
+    @Test func shiftingMovesSegmentsLaterByOffset() {
+        let them = [TranscriptSegment(start: 5, end: 6, speaker: .remote(1), text: "B")]
+        let shifted = them.shifted(by: 6)
+        #expect(shifted.map(\.start) == [11])
+        #expect(shifted.map(\.end) == [12])
+        #expect(shifted.map(\.speaker) == [.remote(1)])
+    }
+
+    @Test func zeroOffsetLeavesSegmentsUnchanged() {
+        let them = [TranscriptSegment(start: 5, end: 6, speaker: .remote(1), text: "B")]
+        #expect(them.shifted(by: 0) == them)
+    }
+
+    @Test func systemTrackOffsetRestoresRealOrder() {
+        // The mic line was spoken before the remote reply, but the system track started 6s late,
+        // so its file-relative time (5) sorts ahead of the mic line (10) until the offset is applied.
+        let you = [TranscriptSegment(start: 10, end: 12, speaker: .you, text: "And then Chris says something.")]
+        let them = [TranscriptSegment(start: 5, end: 6, speaker: .remote(1), text: "Chris says something.")]
+        let merged = Transcript.merging(you, them.shifted(by: 6))
+        #expect(merged.segments.map(\.speaker) == [.you, .remote(1)])
+        #expect(merged.segments.map(\.text) == ["And then Chris says something.", "Chris says something."])
+    }
+
     @Test func plainTextRendersTimestampedSpeakerLines() {
         let transcript = Transcript(segments: [
             TranscriptSegment(start: 3, end: 5, speaker: .you, text: "Hello"),

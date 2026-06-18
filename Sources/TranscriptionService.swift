@@ -29,7 +29,13 @@ struct TranscriptionService {
 
     /// Transcribes `mic.wav` as "You", diarizes and transcribes `system.wav` into the
     /// remote speakers, and merges everything by start time.
-    func transcribeSession(at sessionURL: URL, locale: Locale = .current) async throws -> Transcript {
+    /// - Parameter offset: Seconds the system track started behind the mic, added to its
+    ///   segments so both tracks share the mic's timeline before merging.
+    func transcribeSession(
+        at sessionURL: URL,
+        offset: TimeInterval = 0,
+        locale: Locale = .current
+    ) async throws -> Transcript {
         guard let supported = await SpeechTranscriber.supportedLocale(equivalentTo: locale) else {
             throw TranscriptionError.localeNotSupported(locale)
         }
@@ -55,7 +61,8 @@ struct TranscriptionService {
             return TranscriptSegment(start: utterance.start, end: utterance.end, speaker: speaker, text: utterance.text)
         }
 
-        return Transcript.merging(you, them)
+        // `them` is built on the system file's own timeline; shifting realigns it onto the mic's.
+        return Transcript.merging(you, them.shifted(by: offset))
     }
 
     /// Writes `transcript.txt` and `transcript.json` into the session folder.

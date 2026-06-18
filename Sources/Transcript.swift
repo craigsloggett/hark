@@ -52,6 +52,17 @@ struct TranscriptSegment: Codable, Equatable {
     let text: String
 }
 
+extension [TranscriptSegment] {
+    /// Returns the segments moved later by `offset` seconds, used to place a track that began
+    /// recording after the reference track onto the reference's timeline.
+    func shifted(by offset: TimeInterval) -> [TranscriptSegment] {
+        guard offset != 0 else { return self }
+        return map {
+            TranscriptSegment(start: $0.start + offset, end: $0.end + offset, speaker: $0.speaker, text: $0.text)
+        }
+    }
+}
+
 /// A meeting transcript: segments from both tracks, ordered by start time.
 struct Transcript: Equatable {
     let segments: [TranscriptSegment]

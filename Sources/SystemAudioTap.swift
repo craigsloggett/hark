@@ -49,6 +49,11 @@ final class SystemAudioTap: @unchecked Sendable {
     private var converter: AVAudioConverter?
     private var inputFormat: AVAudioFormat?
 
+    /// Wall-clock time the first audio frame was written: the system track's sample 0. Set once on
+    /// `ioQueue`, read via `firstAudioTime()`. Lets the recorder measure how far behind the mic the
+    /// system track started (e.g. a delayed permission grant) so the transcript merge can realign them.
+    private var firstAudioWallTime: Date?
+
     private var tapID = AudioObjectID(kAudioObjectUnknown)
     private var aggregateDeviceID = AudioObjectID(kAudioObjectUnknown)
     private var ioProcID: AudioDeviceIOProcID?
@@ -72,6 +77,7 @@ final class SystemAudioTap: @unchecked Sendable {
 
     /// Begins capturing system audio to `url`. The first call triggers the system-audio recording permission prompt.
     func start(writingTo url: URL) throws {
+        ioQueue.sync { firstAudioWallTime = nil }
         file = try AVAudioFile(
             forWriting: url,
             settings: Self.canonicalFormat.settings,
@@ -100,6 +106,12 @@ final class SystemAudioTap: @unchecked Sendable {
     }
 
     deinit { stop() }
+
+    /// Wall-clock time the tap wrote its first audio frame, or nil if it never delivered audio.
+    /// Safe to call after `stop()`.
+    func firstAudioTime() -> Date? {
+        ioQueue.sync { firstAudioWallTime }
+    }
 
     // MARK: Capture
 
@@ -160,6 +172,7 @@ final class SystemAudioTap: @unchecked Sendable {
 
             if logsTapActivity { recordTapActivity(inputBuffer) }
             guard inputBuffer.frameLength > 0 else { return }
+            if firstAudioWallTime == nil { firstAudioWallTime = Date() }
             resampleAndWrite(inputBuffer, to: file, using: converter)
         }
     }
