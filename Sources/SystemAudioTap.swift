@@ -191,7 +191,10 @@ final class SystemAudioTap: @unchecked Sendable {
         else { return }
 
         // Feed this one buffer, then report no-more-data so the resampler keeps its state for the next callback.
-        var suppliedInput = false
+        // convert(to:error:withInputFrom:) invokes this block synchronously and never escapes it, so these
+        // bindings stay on the calling thread despite the block's @Sendable requirement.
+        nonisolated(unsafe) let input = inputBuffer
+        nonisolated(unsafe) var suppliedInput = false
         var conversionError: NSError?
         let status = converter.convert(to: outputBuffer, error: &conversionError) { _, inputStatus in
             if suppliedInput {
@@ -200,7 +203,7 @@ final class SystemAudioTap: @unchecked Sendable {
             }
             suppliedInput = true
             inputStatus.pointee = .haveData
-            return inputBuffer
+            return input
         }
 
         if let conversionError {
