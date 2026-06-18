@@ -101,7 +101,7 @@ final class SystemAudioTap: @unchecked Sendable {
 
     deinit { stop() }
 
-    // MARK: - Capture chain (controlQueue)
+    // MARK: Capture
 
     private func buildCaptureChain() throws {
         let tapUUID = try createProcessTap()
@@ -219,7 +219,7 @@ final class SystemAudioTap: @unchecked Sendable {
         return AVAudioFrameCount(Double(inputFrames) * ratio) + 16
     }
 
-    // MARK: - Rate-change listener
+    // MARK: Rate Listener
 
     private func registerRateListener() {
         let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
@@ -257,7 +257,7 @@ final class SystemAudioTap: @unchecked Sendable {
     }
 }
 
-// MARK: - Activity instrumentation
+// MARK: Activity
 
 extension SystemAudioTap {
     /// Logs IOProc liveness once per second (gated by `logsTapActivity`) so a future failure is diagnosable: zero
@@ -302,7 +302,7 @@ extension SystemAudioTap {
     }
 }
 
-// MARK: - Core Audio object setup
+// MARK: Core Audio
 
 extension SystemAudioTap {
     private func createProcessTap() throws -> UUID {
