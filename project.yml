@@ -13,12 +13,18 @@ settings:
     DEAD_CODE_STRIPPING: true
     ENABLE_USER_SCRIPT_SANDBOXING: true
     STRING_CATALOG_GENERATE_SYMBOLS: true
+packages:
+  FluidAudio:
+    url: https://github.com/FluidInference/FluidAudio.git
+    from: 0.15.0
 targets:
   hark:
     type: application
     platform: macOS
     sources:
       - Sources
+    dependencies:
+      - package: FluidAudio
     scheme:
       testTargets:
         - harkTests

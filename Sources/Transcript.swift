@@ -1,16 +1,46 @@
 import Foundation
 
-/// Which side of the meeting a segment came from. The recording's two tracks are
-/// the diarization: the microphone is the local user, system audio is everyone else.
-enum Speaker: String, Codable {
+/// Who spoke a segment. The microphone is always the local user; remote participants
+/// are diarized out of the system-audio track and numbered in first-appearance order
+/// so their labels stay stable across the transcript.
+enum Speaker: Equatable, Hashable {
     case you
-    case them
+    case remote(Int) // 1-based: `.remote(1)` is "Speaker 1"
 
     var label: String {
         switch self {
         case .you: "You"
-        case .them: "Them"
+        case let .remote(index): "Speaker \(index)"
         }
+    }
+}
+
+extension Speaker: Codable {
+    private enum DecodingFailure: Error {
+        case unrecognizedToken(String)
+    }
+
+    /// Encodes as a single token (`you`, `speaker1`, `speaker2`, …) to keep
+    /// `transcript.json` readable and greppable.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .you: try container.encode("you")
+        case let .remote(index): try container.encode("speaker\(index)")
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let token = try decoder.singleValueContainer().decode(String.self)
+        if token == "you" {
+            self = .you
+            return
+        }
+        let prefix = "speaker"
+        guard token.hasPrefix(prefix), let index = Int(token.dropFirst(prefix.count)), index >= 1 else {
+            throw DecodingFailure.unrecognizedToken(token)
+        }
+        self = .remote(index)
     }
 }
 

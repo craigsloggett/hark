@@ -7,6 +7,7 @@ import Speech
 enum TranscriptionError: LocalizedError {
     case localeNotSupported(Locale)
     case unreadableAudio(URL)
+    case diarizationFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -14,30 +15,46 @@ enum TranscriptionError: LocalizedError {
             "Transcription isn't available for \(locale.identifier)."
         case let .unreadableAudio(url):
             "Couldn't read \(url.lastPathComponent)."
+        case let .diarizationFailed(reason):
+            "Couldn't tell the speakers apart: \(reason)"
         }
     }
 }
 
-/// Transcribes a recording session's two tracks on-device with `SpeechAnalyzer`
-/// and merges them into a single chronological transcript.
+/// Transcribes a recording session's two tracks on-device with `SpeechAnalyzer`.
+/// The microphone is the local user ("You"); the system-audio track is diarized into
+/// individual remote speakers, and the two are merged into one chronological transcript.
 struct TranscriptionService {
-    /// Transcribes `mic.wav` (you) and `system.wav` (them) and merges by time.
+    private let diarizer = Diarizer()
+
+    /// Transcribes `mic.wav` as "You", diarizes and transcribes `system.wav` into the
+    /// remote speakers, and merges everything by start time.
     func transcribeSession(at sessionURL: URL, locale: Locale = .current) async throws -> Transcript {
         guard let supported = await SpeechTranscriber.supportedLocale(equivalentTo: locale) else {
             throw TranscriptionError.localeNotSupported(locale)
         }
         try await ensureModel(for: supported)
 
-        let you = try await transcribe(
-            fileURL: sessionURL.appendingPathComponent("mic.wav"),
-            as: .you,
-            locale: supported
-        )
-        let them = try await transcribe(
-            fileURL: sessionURL.appendingPathComponent("system.wav"),
-            as: .them,
-            locale: supported
-        )
+        let micURL = sessionURL.appendingPathComponent("mic.wav")
+        let systemURL = sessionURL.appendingPathComponent("system.wav")
+
+        let you = try await transcribe(fileURL: micURL, locale: supported)
+            .map { TranscriptSegment(start: $0.start, end: $0.end, speaker: .you, text: $0.text) }
+
+        let remoteUtterances = try await transcribe(fileURL: systemURL, locale: supported)
+        let turns = try await diarizer.turns(in: systemURL)
+        let speakers = SpeakerAttribution.remoteSpeakers(for: turns)
+        let them = remoteUtterances.map { utterance in
+            // No diarization (e.g. a silent track) collapses to a single "Speaker 1".
+            let speaker = SpeakerAttribution.speaker(
+                forUtteranceFrom: utterance.start,
+                to: utterance.end,
+                among: turns,
+                using: speakers
+            ) ?? .remote(1)
+            return TranscriptSegment(start: utterance.start, end: utterance.end, speaker: speaker, text: utterance.text)
+        }
+
         return Transcript.merging(you, them)
     }
 
@@ -55,7 +72,14 @@ struct TranscriptionService {
         return textURL
     }
 
-    private func transcribe(fileURL: URL, as speaker: Speaker, locale: Locale) async throws -> [TranscriptSegment] {
+    /// One transcribed utterance before a speaker is attributed to it.
+    private struct Utterance {
+        let start: Double
+        let end: Double
+        let text: String
+    }
+
+    private func transcribe(fileURL: URL, locale: Locale) async throws -> [Utterance] {
         let audioFile: AVAudioFile
         do {
             audioFile = try AVAudioFile(forReading: fileURL)
@@ -68,16 +92,15 @@ struct TranscriptionService {
         // Returns immediately; `finishAfterFile` ends the results stream once the file is consumed.
         try await analyzer.start(inputAudioFile: audioFile, finishAfterFile: true)
 
-        var segments: [TranscriptSegment] = []
+        var utterances: [Utterance] = []
         for try await result in transcriber.results {
-            segments.append(TranscriptSegment(
+            utterances.append(Utterance(
                 start: result.range.start.seconds,
                 end: result.range.end.seconds,
-                speaker: speaker,
                 text: String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
             ))
         }
-        return segments
+        return utterances
     }
 
     /// Downloads the locale's speech model if it isn't already installed. A nil
