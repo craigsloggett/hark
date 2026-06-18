@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Observation
+import OSLog
 
 @MainActor
 @Observable
@@ -10,6 +11,7 @@ final class AudioRecorder {
 
     private var micRecorder: AVAudioRecorder?
     private let systemTap = SystemAudioTap()
+    private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "AudioRecorder")
 
     func toggle() {
         if isRecording {
@@ -22,7 +24,7 @@ final class AudioRecorder {
     func start() {
         Task {
             guard await AVCaptureDevice.requestAccess(for: .audio) else {
-                print("Microphone access denied")
+                logger.error("Microphone access denied")
                 return
             }
             beginRecording()
@@ -37,8 +39,13 @@ final class AudioRecorder {
     }
 
     private func beginRecording() {
-        let session = FileManager.default
-            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+        guard let documents = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask).first
+        else {
+            logger.error("No documents directory available")
+            return
+        }
+        let session = documents
             .appendingPathComponent(Self.sessionName(for: Date()), isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: session, withIntermediateDirectories: true)
@@ -48,7 +55,7 @@ final class AudioRecorder {
                 settings: Self.micSettings
             )
             guard micRecorder.record() else {
-                print("Microphone recorder failed to start")
+                logger.error("Microphone recorder failed to start")
                 return
             }
 
@@ -58,7 +65,7 @@ final class AudioRecorder {
             lastSessionURL = session
             isRecording = true
         } catch {
-            print("Failed to start recording: \(error)")
+            logger.error("Failed to start recording: \(error, privacy: .public)")
             micRecorder?.stop()
             systemTap.stop()
             micRecorder = nil
