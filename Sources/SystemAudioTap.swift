@@ -209,6 +209,8 @@ final class SystemAudioTap: @unchecked Sendable {
         }
     }
 
+    private static let resamplerLatencySlackFrames: AVAudioFrameCount = 16
+
     /// Frames the resampled buffer can hold, with slack for the sample-rate converter's internal latency.
     static func outputCapacity(
         inputFrames: AVAudioFrameCount,
@@ -216,7 +218,7 @@ final class SystemAudioTap: @unchecked Sendable {
         outputSampleRate: Double
     ) -> AVAudioFrameCount {
         let ratio = outputSampleRate / inputSampleRate
-        return AVAudioFrameCount(Double(inputFrames) * ratio) + 16
+        return AVAudioFrameCount(Double(inputFrames) * ratio) + Self.resamplerLatencySlackFrames
     }
 
     // MARK: Rate Listener
