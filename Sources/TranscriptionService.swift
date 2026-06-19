@@ -3,7 +3,6 @@ import CoreMedia
 import Foundation
 import Speech
 
-/// Failure modes when turning a recording session into a transcript.
 enum TranscriptionError: LocalizedError {
     case localeNotSupported(Locale)
     case unreadableAudio(URL)
@@ -22,8 +21,6 @@ enum TranscriptionError: LocalizedError {
 }
 
 /// Transcribes a recording session's two tracks on-device with `SpeechAnalyzer`.
-/// The microphone is the local user ("You"); the system-audio track is diarized into
-/// individual remote speakers, and the two are merged into one chronological transcript.
 struct TranscriptionService {
     private let diarizer = Diarizer()
 
@@ -112,8 +109,7 @@ struct TranscriptionService {
         return utterances
     }
 
-    /// Installs the locale's speech model if needed, then reserves it: `SpeechAnalyzer`
-    /// transcribes only reserved locales, not merely installed ones.
+    /// Installs the locale's speech model then reserves it.
     private func ensureModel(for locale: Locale) async throws {
         let installed = await SpeechTranscriber.installedLocales.containsLocale(matching: locale)
         if !installed {
@@ -148,8 +144,7 @@ struct TranscriptionService {
 }
 
 private extension Sequence<Locale> {
-    /// Whether any element matches `locale` by BCP-47 identifier, the comparison the Speech
-    /// framework uses to key its installed and reserved locales.
+    /// Whether any element matches `locale` by BCP-47 identifier.
     func containsLocale(matching locale: Locale) -> Bool {
         contains { $0.identifier(.bcp47) == locale.identifier(.bcp47) }
     }

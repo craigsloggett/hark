@@ -53,8 +53,7 @@ final class AudioRecorder {
     }
 
     /// How far the system track started behind the mic, in seconds. The mic always starts first,
-    /// so the offset is non-negative; it is the gap to add to system-track timestamps so both
-    /// tracks share the mic's timeline. Zero when no system audio was captured.
+    /// so the offset is non-negative.
     private func systemTrackOffset() -> TimeInterval {
         guard let sessionStart, let firstSystemAudio = systemTap.firstAudioTime() else { return 0 }
         return max(0, firstSystemAudio.timeIntervalSince(sessionStart))
@@ -83,8 +82,6 @@ final class AudioRecorder {
     }
 
     private func requestSpeechAccess() async -> Bool {
-        // requestAuthorization calls back on a background queue, so the handler must be
-        // non-isolated; an inferred @MainActor closure traps with a main-thread assertion.
         await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { @Sendable status in
                 continuation.resume(returning: status == .authorized)

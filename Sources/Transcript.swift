@@ -1,8 +1,5 @@
 import Foundation
 
-/// Who spoke a segment. The microphone is always the local user; remote participants
-/// are diarized out of the system-audio track and numbered in first-appearance order
-/// so their labels stay stable across the transcript.
 enum Speaker: Equatable {
     case you
     case remote(Int) // 1-based: `.remote(1)` is "Speaker 1"
@@ -20,8 +17,7 @@ extension Speaker: Codable {
         case unrecognizedToken(String)
     }
 
-    /// Encodes as a single token (`you`, `speaker1`, `speaker2`, …) to keep
-    /// `transcript.json` readable and greppable.
+    /// Encodes as a single token (`you`, `speaker1`, `speaker2`, etc.).
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
@@ -63,11 +59,9 @@ extension [TranscriptSegment] {
     }
 }
 
-/// A meeting transcript: segments from both tracks, ordered by start time.
 struct Transcript: Equatable {
     let segments: [TranscriptSegment]
 
-    /// Readable transcript, one line per segment: `[hh:mm:ss] You: ...`.
     func plainText() -> String {
         segments
             .map { "[\(Self.timestamp($0.start))] \($0.speaker.label): \($0.text)" }

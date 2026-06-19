@@ -31,8 +31,7 @@ final class SystemAudioTap: @unchecked Sendable {
         }
     }
 
-    /// 16 kHz mono Int16, independent of the device's live rate. Resampling every buffer into this fixed
-    /// format keeps the WAV duration correct even when the output device renegotiates its rate mid-recording.
+    /// Sample at 16 kHz mono Int16, independent of the device's live rate.
     private static let canonicalFormat = AVAudioFormat(
         commonFormat: .pcmFormatInt16,
         sampleRate: 16000,
@@ -49,9 +48,7 @@ final class SystemAudioTap: @unchecked Sendable {
     private var converter: AVAudioConverter?
     private var inputFormat: AVAudioFormat?
 
-    /// Wall-clock time the first audio frame was written: the system track's sample 0. Set once on
-    /// `ioQueue`, read via `firstAudioTime()`. Lets the recorder measure how far behind the mic the
-    /// system track started (e.g. a delayed permission grant) so the transcript merge can realign them.
+    /// Wall-clock time the first audio frame was written.
     private var firstAudioWallTime: Date?
 
     private var tapID = AudioObjectID(kAudioObjectUnknown)
@@ -69,13 +66,11 @@ final class SystemAudioTap: @unchecked Sendable {
     /// Flip to true to emit per-second IOProc liveness at .debug level.
     private let logsTapActivity = false
 
-    // IOProc liveness counters (ioQueue); sampled and reset once per second by activityTimer (controlQueue).
     private var tapCallbackCount = 0
     private var tapFrameCount = 0
     private var tapSawSignal = false
     private var activityTimer: DispatchSourceTimer?
 
-    /// Begins capturing system audio to `url`. The first call triggers the system-audio recording permission prompt.
     func start(writingTo url: URL) throws {
         ioQueue.sync { firstAudioWallTime = nil }
         file = try AVAudioFile(
@@ -91,7 +86,6 @@ final class SystemAudioTap: @unchecked Sendable {
         if logsTapActivity { startActivityTimer() }
     }
 
-    /// Stops capture and releases the tap, aggregate device, and output file.
     func stop() {
         stopActivityTimer()
         removeRateListener()
@@ -107,8 +101,6 @@ final class SystemAudioTap: @unchecked Sendable {
 
     deinit { stop() }
 
-    /// Wall-clock time the tap wrote its first audio frame, or nil if it never delivered audio.
-    /// Safe to call after `stop()`.
     func firstAudioTime() -> Date? {
         ioQueue.sync { firstAudioWallTime }
     }
@@ -275,9 +267,10 @@ final class SystemAudioTap: @unchecked Sendable {
 // MARK: Activity
 
 extension SystemAudioTap {
-    /// Logs IOProc liveness once per second (gated by `logsTapActivity`) so a future failure is diagnosable: zero
-    /// callbacks means the device stalled, callbacks with zero frames means the tap data path died, and
-    /// signal=false on nonzero frames means only silence arrived.
+    /// Logs IOProc liveness once per second (gated by `logsTapActivity`):
+    /// zero callbacks means the device stalled
+    /// callbacks with zero frames means the tap data path died
+    /// signal=false on nonzero frames means only silence arrived
     private func startActivityTimer() {
         let timer = DispatchSource.makeTimerSource(queue: controlQueue)
         timer.schedule(deadline: .now() + 1, repeating: .seconds(1))
