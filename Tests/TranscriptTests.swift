@@ -44,11 +44,11 @@ struct TranscriptTests {
     @Test func systemTrackOffsetRestoresRealOrder() {
         // The mic line was spoken before the remote reply, but the system track started 6s late,
         // so its file-relative time (5) sorts ahead of the mic line (10) until the offset is applied.
-        let you = [TranscriptSegment(start: 10, end: 12, speaker: .you, text: "And then Chris says something.")]
-        let them = [TranscriptSegment(start: 5, end: 6, speaker: .remote(1), text: "Chris says something.")]
+        let you = [TranscriptSegment(start: 10, end: 12, speaker: .you, text: "A")]
+        let them = [TranscriptSegment(start: 5, end: 6, speaker: .remote(1), text: "B")]
         let merged = Transcript.merging(you, them.shifted(by: 6))
         #expect(merged.segments.map(\.speaker) == [.you, .remote(1)])
-        #expect(merged.segments.map(\.text) == ["And then Chris says something.", "Chris says something."])
+        #expect(merged.segments.map(\.text) == ["A", "B"])
     }
 
     @Test func plainTextRendersTimestampedSpeakerLines() {
