@@ -3,7 +3,7 @@ import Foundation
 /// Who spoke a segment. The microphone is always the local user; remote participants
 /// are diarized out of the system-audio track and numbered in first-appearance order
 /// so their labels stay stable across the transcript.
-enum Speaker: Equatable, Hashable {
+enum Speaker: Equatable {
     case you
     case remote(Int) // 1-based: `.remote(1)` is "Speaker 1"
 

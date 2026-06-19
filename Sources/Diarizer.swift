@@ -8,7 +8,6 @@ import OSLog
 actor Diarizer {
     private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "Diarizer")
 
-    /// Loaded once on first use and reused.
     private var model: LSEENDDiarizer?
 
     /// Diarizes a 16 kHz mono recording into turns sorted by start time. Turns may overlap

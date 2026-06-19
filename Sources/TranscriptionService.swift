@@ -45,21 +45,16 @@ struct TranscriptionService {
         let systemURL = sessionURL.appendingPathComponent("system.wav")
 
         let you = try await transcribe(fileURL: micURL, locale: supported)
-            .map { TranscriptSegment(start: $0.start, end: $0.end, speaker: .you, text: $0.text) }
+            .map { $0.segment(as: .you) }
 
         let remoteUtterances = try await transcribe(fileURL: systemURL, locale: supported)
         // Diarization only labels remote utterances; skip it when there are none.
         let turns = remoteUtterances.isEmpty ? [] : try await diarizer.turns(in: systemURL)
-        let speakers = SpeakerAttribution.remoteSpeakers(for: turns)
+        let timeline = DiarizedTimeline(turns: turns)
         let them = remoteUtterances.map { utterance in
-            // No diarization (e.g. a silent track) collapses to a single "Speaker 1".
-            let speaker = SpeakerAttribution.speaker(
-                forUtteranceFrom: utterance.start,
-                to: utterance.end,
-                among: turns,
-                using: speakers
-            ) ?? .remote(1)
-            return TranscriptSegment(start: utterance.start, end: utterance.end, speaker: speaker, text: utterance.text)
+            // Fall back to one speaker when diarization found no turns to attribute to.
+            let speaker = timeline.speaker(forUtteranceFrom: utterance.start, to: utterance.end) ?? .remote(1)
+            return utterance.segment(as: speaker)
         }
 
         // `them` is built on the system file's own timeline; shifting realigns it onto the mic's.
@@ -85,6 +80,10 @@ struct TranscriptionService {
         let start: Double
         let end: Double
         let text: String
+
+        func segment(as speaker: Speaker) -> TranscriptSegment {
+            TranscriptSegment(start: start, end: end, speaker: speaker, text: text)
+        }
     }
 
     private func transcribe(fileURL: URL, locale: Locale) async throws -> [Utterance] {
@@ -116,8 +115,7 @@ struct TranscriptionService {
     /// Installs the locale's speech model if needed, then reserves it: `SpeechAnalyzer`
     /// transcribes only reserved locales, not merely installed ones.
     private func ensureModel(for locale: Locale) async throws {
-        let installed = await SpeechTranscriber.installedLocales
-            .contains { $0.identifier(.bcp47) == locale.identifier(.bcp47) }
+        let installed = await SpeechTranscriber.installedLocales.containsLocale(matching: locale)
         if !installed {
             let transcriber = Self.makeTranscriber(locale: locale)
             if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
@@ -127,15 +125,14 @@ struct TranscriptionService {
         try await reserve(locale)
     }
 
-    /// Reserves `locale` with `AssetInventory` if it isn't already, freeing the oldest
-    /// reservation first when the per-app limit is reached.
+    /// Reserves `locale` with `AssetInventory` if it isn't already, freeing an existing
+    /// reservation when the per-app limit is reached.
     private func reserve(_ locale: Locale) async throws {
-        let bcp47 = locale.identifier(.bcp47)
         let reserved = await AssetInventory.reservedLocales
-        guard !reserved.contains(where: { $0.identifier(.bcp47) == bcp47 }) else { return }
+        guard !reserved.containsLocale(matching: locale) else { return }
         if try await AssetInventory.reserve(locale: locale) { return }
-        if let oldest = reserved.first {
-            _ = await AssetInventory.release(reservedLocale: oldest)
+        if let existing = reserved.first {
+            _ = await AssetInventory.release(reservedLocale: existing)
         }
         _ = try await AssetInventory.reserve(locale: locale)
     }
@@ -147,5 +144,13 @@ struct TranscriptionService {
             reportingOptions: [],
             attributeOptions: [.audioTimeRange]
         )
+    }
+}
+
+private extension Sequence<Locale> {
+    /// Whether any element matches `locale` by BCP-47 identifier, the comparison the Speech
+    /// framework uses to key its installed and reserved locales.
+    func containsLocale(matching locale: Locale) -> Bool {
+        contains { $0.identifier(.bcp47) == locale.identifier(.bcp47) }
     }
 }

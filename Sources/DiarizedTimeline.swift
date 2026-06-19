@@ -8,34 +8,32 @@ struct DiarizationTurn: Equatable {
     let speakerId: String
 }
 
-/// Turns diarization output into stable speaker labels and attributes transcribed
-/// utterances to speakers. Pure logic with no dependency on the diarization model,
-/// so the whole thing is unit-testable without downloading or running CoreML.
-enum SpeakerAttribution {
-    /// Assigns each distinct diarization `speakerId` a 1-based remote `Speaker` in the
-    /// order speakers first appear on the timeline, so "Speaker 1" is whoever spoke first.
-    /// - Parameter turns: diarization turns; sorted by start internally.
-    /// - Returns: a map from raw `speakerId` to its `Speaker.remote` label.
-    static func remoteSpeakers(for turns: [DiarizationTurn]) -> [String: Speaker] {
+/// The diarized system-audio track: speaker turns plus their stable, first-appearance
+/// `Speaker` labels. Pure logic with no dependency on the diarization model, so it
+/// unit-tests without downloading or running CoreML.
+struct DiarizedTimeline {
+    private let turns: [DiarizationTurn]
+    private let speakers: [String: Speaker]
+
+    /// Numbers each distinct `speakerId` a 1-based remote `Speaker` in first-appearance
+    /// order, so "Speaker 1" is whoever spoke first.
+    init(turns: [DiarizationTurn]) {
+        let ordered = turns.sorted { $0.start < $1.start }
         var speakers: [String: Speaker] = [:]
         var nextIndex = 1
-        for turn in turns.sorted(by: { $0.start < $1.start }) where speakers[turn.speakerId] == nil {
+        for turn in ordered where speakers[turn.speakerId] == nil {
             speakers[turn.speakerId] = .remote(nextIndex)
             nextIndex += 1
         }
-        return speakers
+        self.turns = ordered
+        self.speakers = speakers
     }
 
     /// Attributes one transcribed utterance to a speaker by maximum temporal overlap,
     /// falling back to the nearest turn by midpoint when nothing overlaps (the utterance
     /// landed in a diarization gap).
-    /// - Returns: the winning `Speaker`, or `nil` when there are no turns to attribute to.
-    static func speaker(
-        forUtteranceFrom start: Double,
-        to end: Double,
-        among turns: [DiarizationTurn],
-        using speakers: [String: Speaker]
-    ) -> Speaker? {
+    /// - Returns: the winning `Speaker`, or `nil` when the timeline has no turns.
+    func speaker(forUtteranceFrom start: Double, to end: Double) -> Speaker? {
         guard !turns.isEmpty else { return nil }
 
         var best: (speakerId: String, overlap: Double)?
