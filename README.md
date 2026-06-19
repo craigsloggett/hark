@@ -32,6 +32,8 @@ On first launch, grant microphone access when prompted. The first recording also
 
 After a recording, click Transcribe to transcribe that session. Transcription runs on-device with Apple's `SpeechAnalyzer`, and the system-audio track is diarized into individual remote speakers on-device with [FluidAudio](https://github.com/FluidInference/FluidAudio). The first run downloads the speech model and the diarization models (needs network once) and prompts for speech recognition access. It writes `transcript.txt` and `transcript.json` into the session folder, merging both tracks into one timeline: your microphone is You, and each remote participant is Speaker 1, Speaker 2, and so on. The `transcript.json` `speaker` field is `you`, `speaker1`, `speaker2`, and so on.
 
+To inspect diarization segmentation, enable `HARK_DIARIZATION_DEBUG`. It is pre-declared but unchecked in the scheme (turn it on in Edit Scheme → Run → Arguments → Environment Variables), or run from the shell with `HARK_DIARIZATION_DEBUG=1 make run`. When set, transcription writes `diarization.debug.json` into the session folder with the raw segments (start, end, speaker, activity).
+
 System audio is captured with a private, tap-only aggregate device. Recording stays full-duration and correct-speed regardless of the output device or its sample-rate changes, including a Bluetooth headset in HFP call mode (the same headset used as both microphone and output). The tap captures the system mix independent of the output device's link rate, and every buffer is resampled to the canonical 16 kHz.
 
 ## Test
