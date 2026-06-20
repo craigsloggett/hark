@@ -1,8 +1,8 @@
 {
   "fill" : {
     "linear-gradient" : [
-      "display-p3:0.28906,0.35962,0.43799,1.00000",
-      "display-p3:0.04620,0.05835,0.09125,1.00000"
+      "display-p3:0.26978,0.28467,0.31274,1.00000",
+      "display-p3:0.07147,0.08240,0.09802,1.00000"
     ],
     "orientation" : {
       "start" : {
@@ -35,7 +35,7 @@
         {
           "blend-mode" : "normal",
           "fill" : {
-            "solid" : "display-p3:0.51953,0.90186,0.76172,1.00000"
+            "solid" : "display-p3:0.45850,0.98535,0.38184,1.00000"
           },
           "glass" : true,
           "hidden" : false,
@@ -46,7 +46,7 @@
       ],
       "lighting" : "individual",
       "name" : "Group",
-      "opacity" : 1,
+      "opacity" : 0.8,
       "shadow" : {
         "kind" : "layer-color",
         "opacity" : 1
