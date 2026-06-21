@@ -38,9 +38,7 @@ struct ContentView: View {
             }
         }
         .padding(40)
-        // Open maxHeight so the content-sized window grows to fit the
-        // transcribe controls instead of clipping them on macOS 26.
-        .frame(minWidth: 320, minHeight: 280, maxHeight: .infinity)
+        .frame(minWidth: 320, minHeight: 280)
     }
 
     @ViewBuilder
