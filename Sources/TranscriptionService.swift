@@ -75,7 +75,7 @@ struct TranscriptionService {
     private static var utteranceGap: Double {
         guard let raw = ProcessInfo.processInfo.environment["HARK_UTTERANCE_GAP_MS"],
               let milliseconds = Double(raw)
-        else { return 0.6 }
+        else { return 0.4 }
         return milliseconds / 1000
     }
 }

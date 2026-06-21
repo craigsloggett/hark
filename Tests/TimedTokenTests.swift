@@ -91,4 +91,54 @@ struct TimedTokenTests {
         let tokens = [TimedToken(start: 0, end: 1, text: " ")]
         #expect(tokens.segments(resolving: { _ in .you }, gap: 0.6).isEmpty)
     }
+
+    // MARK: Punctuation
+
+    @Test func trailingPunctuationAfterGapJoinsPreviousSentence() {
+        // A lone period emitted after a long pause terminates the prior sentence; the gap still
+        // separates the next utterance rather than being absorbed by the stray token.
+        let tokens = [
+            TimedToken(start: 0, end: 1, text: " keep"),
+            TimedToken(start: 1, end: 2, text: " you"),
+            TimedToken(start: 9, end: 9.1, text: "."),
+            TimedToken(start: 9.1, end: 10, text: " Okay"),
+        ]
+        #expect(tokens.segments(resolving: { _ in .you }, gap: 0.6).map(\.text) == ["keep you.", "Okay"])
+    }
+
+    @Test func standalonePunctuationProducesNoSegment() {
+        let tokens = [
+            TimedToken(start: 0, end: 1, text: " hello"),
+            TimedToken(start: 5, end: 5.1, text: "."),
+            TimedToken(start: 12, end: 13, text: " world"),
+        ]
+        #expect(tokens.segments(resolving: { _ in .you }, gap: 0.6).map(\.text) == ["hello.", "world"])
+    }
+
+    @Test func leadingPunctuationIsDropped() {
+        let tokens = [
+            TimedToken(start: 0, end: 0.1, text: "."),
+            TimedToken(start: 0.2, end: 1, text: " hi"),
+        ]
+        #expect(tokens.segments(resolving: { _ in .you }, gap: 0.6).map(\.text) == ["hi"])
+    }
+
+    @Test func punctuationWithinARunStaysAttached() {
+        let tokens = [
+            TimedToken(start: 0, end: 1, text: " yes"),
+            TimedToken(start: 1, end: 1.1, text: ","),
+            TimedToken(start: 1.1, end: 2, text: " please"),
+        ]
+        #expect(tokens.segments(resolving: { _ in .you }, gap: 0.6).map(\.text) == ["yes, please"])
+    }
+
+    @Test func subwordContinuationNeverSplitsOnGap() {
+        // "we'" and "re" are pieces of one word; a timing gap between them must not split it.
+        let tokens = [
+            TimedToken(start: 0, end: 1, text: " we'"),
+            TimedToken(start: 2, end: 3, text: "re"),
+            TimedToken(start: 3, end: 4, text: " here"),
+        ]
+        #expect(tokens.segments(resolving: { _ in .you }, gap: 0.6).map(\.text) == ["we're here"])
+    }
 }
