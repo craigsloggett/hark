@@ -1,6 +1,10 @@
-# Hark
+<p align="center">
+  <img src="Assets/AppIcon.png" width="128" height="128" alt="Hark app icon">
+</p>
 
-A minimal SwiftUI macOS app for recording meetings.
+<h1 align="center">Hark</h1>
+
+<p align="center">A minimal SwiftUI macOS app for recording meetings.</p>
 
 ## Requirements
 
