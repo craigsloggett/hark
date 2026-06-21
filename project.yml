@@ -4,8 +4,6 @@ options:
   deploymentTarget:
     macOS: '26.0'
   createIntermediateGroups: true
-  # Treat the Icon Composer .icon package as one file; XcodeGen otherwise
-  # flattens it and Xcode no longer recognizes it as an app icon.
   fileTypes:
     icon:
       file: true
