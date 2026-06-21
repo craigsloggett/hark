@@ -4,6 +4,9 @@ options:
   deploymentTarget:
     macOS: '26.0'
   createIntermediateGroups: true
+  fileTypes:
+    icon:
+      file: true
 settings:
   base:
     SWIFT_VERSION: '6.0'
@@ -23,6 +26,8 @@ targets:
     platform: macOS
     sources:
       - Sources
+      - path: Resources/AppIcon.icon
+        buildPhase: resources
     dependencies:
       - package: FluidAudio
     scheme:

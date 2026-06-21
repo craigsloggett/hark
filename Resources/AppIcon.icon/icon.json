@@ -1,0 +1,77 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "display-p3:0.19887,0.20986,0.23070,1.00000",
+      "display-p3:0.07147,0.08240,0.09802,1.00000"
+    ],
+    "orientation" : {
+      "start" : {
+        "x" : 0.5,
+        "y" : 0
+      },
+      "stop" : {
+        "x" : 0.5,
+        "y" : 0.7
+      }
+    }
+  },
+  "groups" : [
+    {
+      "blend-mode" : "normal",
+      "blur-material-specializations" : [
+        {
+          "value" : 1
+        },
+        {
+          "appearance" : "dark",
+          "value" : 1
+        },
+        {
+          "appearance" : "tinted",
+          "value" : 1
+        }
+      ],
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "fill" : {
+            "solid" : "display-p3:0.27673,0.98535,0.80257,1.00000"
+          },
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "waveform.svg",
+          "name" : "waveform",
+          "opacity" : 1
+        },
+        {
+          "fill" : {
+            "solid" : "display-p3:0.27710,0.95996,0.78076,1.00000"
+          },
+          "glass" : false,
+          "hidden" : false,
+          "image-name" : "waveform-glow.png",
+          "name" : "waveform-glow",
+          "opacity" : 0.55
+        }
+      ],
+      "lighting" : "individual",
+      "name" : "Group",
+      "opacity" : 1,
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 1
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.25
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

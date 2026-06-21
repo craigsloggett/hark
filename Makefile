@@ -3,6 +3,7 @@ SCHEME        := hark
 CONFIGURATION ?= Debug
 VERSION       ?=
 DERIVED_DATA  := build
+XCODE_DERIVED := $(HOME)/Library/Developer/Xcode/DerivedData
 
 .DEFAULT_GOAL := build
 
@@ -34,5 +35,8 @@ format:
 	@command -v swiftformat >/dev/null 2>&1 || { printf 'swiftformat not found; install with: brew install swiftformat\n' >&2; exit 1; }
 	swiftformat .
 
+# Also clear Xcode's own DerivedData for this project; a stale build there keeps
+# serving a blank app icon to the Dock even after a rebuild.
 clean:
 	rm -rf $(DERIVED_DATA) $(PROJECT).xcodeproj
+	rm -rf $(XCODE_DERIVED)/$(PROJECT)-*
