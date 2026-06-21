@@ -62,4 +62,26 @@ struct DiarizedTimelineTests {
     @Test func returnsNilWhenNoTurns() {
         #expect(DiarizedTimeline(turns: []).speaker(forUtteranceFrom: 0, to: 1) == nil)
     }
+
+    // MARK: Point query
+
+    @Test func attributesPointInsideTurn() {
+        #expect(Self.twoSpeakers.speaker(at: 1) == .remote(1))
+        #expect(Self.twoSpeakers.speaker(at: 5) == .remote(2))
+    }
+
+    @Test func snapsPointInGapToNearestTurn() {
+        let timeline = DiarizedTimeline(turns: [
+            DiarizationTurn(start: 0, end: 2, speakerId: "A"),
+            DiarizationTurn(start: 8, end: 10, speakerId: "B"),
+        ])
+        // 5.5 is in the gap; nearer B's midpoint (9) than A's (1).
+        #expect(timeline.speaker(at: 5.5) == .remote(2))
+        // 3 is in the gap; nearer A's midpoint (1) than B's (9).
+        #expect(timeline.speaker(at: 3) == .remote(1))
+    }
+
+    @Test func pointReturnsNilWhenNoTurns() {
+        #expect(DiarizedTimeline(turns: []).speaker(at: 0) == nil)
+    }
 }

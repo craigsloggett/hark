@@ -37,6 +37,9 @@ targets:
         - variable: HARK_DIARIZATION_DEBUG
           value: '1'
           isEnabled: false
+        - variable: HARK_ASR_DEBUG
+          value: '1'
+          isEnabled: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.craigsloggett.hark

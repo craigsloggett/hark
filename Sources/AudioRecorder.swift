@@ -2,7 +2,6 @@ import AVFoundation
 import Foundation
 import Observation
 import OSLog
-import Speech
 
 @MainActor
 @Observable
@@ -63,28 +62,12 @@ final class AudioRecorder {
         guard !isRecording, transcriptionState != .running, let session = lastSessionURL else { return }
         transcriptionState = .running
         Task {
-            guard await requestSpeechAccess() else {
-                logger.error("Speech recognition access denied")
-                transcriptionState = .failed(
-                    "Speech recognition access is off. Enable it in "
-                        + "System Settings › Privacy & Security › Speech Recognition."
-                )
-                return
-            }
             do {
                 let transcript = try await transcriber.transcribeSession(at: session, offset: lastSessionOffset)
                 transcriptionState = try .finished(transcriber.write(transcript, to: session))
             } catch {
                 logger.error("Transcription failed: \(error, privacy: .public)")
                 transcriptionState = .failed(error.localizedDescription)
-            }
-        }
-    }
-
-    private func requestSpeechAccess() async -> Bool {
-        await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { @Sendable status in
-                continuation.resume(returning: status == .authorized)
             }
         }
     }

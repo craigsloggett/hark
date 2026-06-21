@@ -39,12 +39,26 @@ struct DiarizedTimeline {
         if let best {
             return speakers[best.speakerId]
         }
+        return nearestSpeaker(to: (start + end) / 2)
+    }
 
-        // When there is no overlap, pick the turn whose midpoint is nearest the
-        // utterance's.
-        let midpoint = (start + end) / 2
+    /// Attributes one token to a speaker by the turn its `time` falls in, falling back to the
+    /// nearest turn by midpoint when it lands in a diarization gap.
+    /// - Returns: the containing speaker, or `nil` when the timeline has no turns.
+    func speaker(at time: Double) -> Speaker? {
+        guard !turns.isEmpty else { return nil }
+        // `turns` is sorted by start, so the first match is the earliest-starting turn that
+        // contains the time, keeping crosstalk ties consistent with the overlap path.
+        if let containing = turns.first(where: { time >= $0.start && time <= $0.end }) {
+            return speakers[containing.speakerId]
+        }
+        return nearestSpeaker(to: time)
+    }
+
+    /// The speaker of the turn whose midpoint is nearest `time`. Ties go to the earliest turn.
+    private func nearestSpeaker(to time: Double) -> Speaker? {
         let nearest = turns.min { lhs, rhs in
-            abs((lhs.start + lhs.end) / 2 - midpoint) < abs((rhs.start + rhs.end) / 2 - midpoint)
+            abs((lhs.start + lhs.end) / 2 - time) < abs((rhs.start + rhs.end) / 2 - time)
         }
         return nearest.flatMap { speakers[$0.speakerId] }
     }
