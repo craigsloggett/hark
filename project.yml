@@ -43,6 +43,9 @@ targets:
         - variable: HARK_DIARIZATION_CLUSTER_THRESHOLD
           value: '0.75'
           isEnabled: false
+        - variable: HARK_DIARIZATION_FA
+          value: '0.15'
+          isEnabled: false
         - variable: HARK_DIARIZATION_MIN_SEGMENT_MS
           value: '1000'
           isEnabled: false

@@ -69,6 +69,12 @@ actor Diarizer {
     /// stable plateau (~0.68-0.85) that separates them; below ~0.65 they merge, above ~0.9 they do too.
     private static let defaultClusterThreshold = 0.75
 
+    /// hark raises community-1's VBx precision warm-start from 0.07 to 0.15. Past ~0.13 a contiguous,
+    /// stable band splits close-voiced speakers the dominant cluster otherwise absorbs (unlike the
+    /// threshold, whose separating points are knife-edges); 0.15 sits just inside it. Trades mild
+    /// over-splitting on simple audio for separating quiet or short remote voices.
+    private static let defaultFa = 0.15
+
     /// Builds the offline config from FluidAudio's community-1 defaults, overriding individual knobs
     /// from `HARK_DIARIZATION_*` when set. Unset or unparseable values keep the default.
     private static func configFromEnvironment() -> OfflineDiarizerConfig {
@@ -76,6 +82,7 @@ actor Diarizer {
         return OfflineDiarizerConfig(
             clusteringThreshold: double(env, "HARK_DIARIZATION_CLUSTER_THRESHOLD")
                 ?? defaultClusterThreshold,
+            Fa: double(env, "HARK_DIARIZATION_FA") ?? defaultFa,
             segmentationStepRatio: double(env, "HARK_DIARIZATION_STEP_RATIO")
                 ?? OfflineDiarizerConfig.Segmentation.community.stepRatio,
             minSegmentDuration: seconds(env, "HARK_DIARIZATION_MIN_SEGMENT_MS")
