@@ -2,21 +2,17 @@ import FluidAudio
 import Foundation
 import OSLog
 
-/// Diarizes the system-audio track into speaker turns with FluidAudio's on-device offline
-/// pyannote-community-1 pipeline. The CoreML models load once and are cached on this actor; each
-/// call drives them through a short-lived, non-`Sendable` manager that never leaves the actor.
+/// Diarizes the system-audio track with FluidAudio's offline pyannote community-1 pipeline. The
+/// models are `Sendable` and cached here; the manager is not, so a fresh one is built per call and
+/// never leaves the actor.
 actor Diarizer {
     private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "Diarizer")
 
     private var models: OfflineDiarizerModels?
-
-    /// FluidAudio's community-1 defaults, with optional `HARK_DIARIZATION_*` overrides applied so
-    /// accuracy can be swept on saved recordings without a rebuild.
     private let config = Diarizer.configFromEnvironment()
 
-    /// Diarizes a 16 kHz mono recording into turns sorted by start time. The offline pipeline's
-    /// default exclusive segments mean turns do not overlap.
-    /// - Returns: the speaker turns, or an empty array when the track is silent.
+    /// Diarizes a 16 kHz mono recording into speaker turns sorted by start time.
+    /// - Returns: the turns, or an empty array when the track is silent.
     func turns(in fileURL: URL) async throws -> [DiarizationTurn] {
         let manager = OfflineDiarizerManager(config: config)
         try await manager.initialize(models: loadedModels())
@@ -25,14 +21,13 @@ actor Diarizer {
         do {
             result = try await manager.process(fileURL)
         } catch OfflineDiarizationError.noSpeechDetected {
-            // The offline pipeline throws on silence; mirror the upstream track-level guard so a
-            // near-silent system track collapses to Speaker 1 rather than surfacing an error.
+            // The pipeline throws on silence; treat it as an empty timeline rather than an error.
             return []
         } catch {
             throw TranscriptionError.diarizationFailed(String(describing: error))
         }
 
-        // Offline output groups by speaker, so order it before reporting and mapping.
+        // Offline output is grouped by speaker, not time, so sort before mapping.
         let segments = result.segments.sorted { $0.startTimeSeconds < $1.startTimeSeconds }
         report(segments, for: fileURL)
 
@@ -49,8 +44,6 @@ actor Diarizer {
         }
     }
 
-    /// Loads the offline diarizer models once and caches them. The result is `Sendable`, so a
-    /// fresh per-call manager can reuse it without re-downloading.
     private func loadedModels() async throws -> OfflineDiarizerModels {
         if let models { return models }
         do {
@@ -63,20 +56,13 @@ actor Diarizer {
         }
     }
 
-    /// hark raises community-1's clustering threshold from 0.6 to 0.75. On this offline VBx pipeline
-    /// a higher threshold yields *more* speakers (the opposite of plain AHC), and 0.6 collapses the
-    /// distinct voices in hark's mixed remote-meeting audio into one. 0.75 is the centre of a wide
-    /// stable plateau (~0.68-0.85) that separates them; below ~0.65 they merge, above ~0.9 they do too.
+    /// Community-1's stock 0.6 under-clusters hark's mixed remote-meeting audio; 0.75 separates the speakers.
     private static let defaultClusterThreshold = 0.75
 
-    /// hark raises community-1's VBx precision warm-start from 0.07 to 0.13. Below ~0.125 close-voiced
-    /// remote speakers merge into the dominant cluster; above ~0.135 the dominant speaker's own quieter
-    /// passages fragment into phantom speakers. 0.13 is the centre of the narrow band (~0.125-0.132)
-    /// that separates the former without the latter on real calls.
+    /// 0.13 separates close-voiced remote speakers without splitting the dominant speaker's quieter passages.
     private static let defaultFa = 0.13
 
-    /// Builds the offline config from FluidAudio's community-1 defaults, overriding individual knobs
-    /// from `HARK_DIARIZATION_*` when set. Unset or unparseable values keep the default.
+    /// Builds the config from community-1 defaults, applying any `HARK_DIARIZATION_*` overrides.
     private static func configFromEnvironment() -> OfflineDiarizerConfig {
         let env = ProcessInfo.processInfo.environment
         return OfflineDiarizerConfig(
@@ -95,14 +81,13 @@ actor Diarizer {
         return value
     }
 
-    /// Reads a millisecond-valued knob and returns it in seconds.
     private static func seconds(_ env: [String: String], _ key: String) -> Double? {
         guard let milliseconds = double(env, key) else { return nil }
         return milliseconds / 1000
     }
 
-    /// Logs a summary of the result and, when `HARK_DIARIZATION_DEBUG` is set, writes the raw
-    /// segments to `diarization.debug.json` next to the input.
+    /// Logs a summary and, when `HARK_DIARIZATION_DEBUG` is set, writes the raw segments to
+    /// `diarization.debug.json` next to the input.
     private func report(_ segments: [TimedSpeakerSegment], for fileURL: URL) {
         let speakers = Set(segments.map(\.speakerId)).count
         let speech = segments.reduce(Float(0)) { $0 + $1.durationSeconds }

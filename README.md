@@ -18,4 +18,13 @@ Hark runs on macOS 26 or later.
 
 ## Contributing
 
-Building Hark from source, the project layout, and the recording and transcription internals are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
+Hark is a SwiftUI app. The Xcode project is generated from `project.yml` with XcodeGen, and common tasks run through the Makefile. Install the toolchain with `brew install xcodegen swiftformat swiftlint` and build with Xcode 26.
+
+```sh
+make build   # generate the project and build
+make run     # build and launch
+make test    # run the unit tests
+make lint    # check formatting and SwiftLint
+```
+
+Application code lives in `Sources/` and tests in `Tests/`. Transcription and speaker diarization run on-device through [FluidAudio](https://github.com/FluidInference/FluidAudio), and its models download on first transcribe. See [CONTRIBUTING.md](CONTRIBUTING.md) for the recording, transcription, and diarization internals.
