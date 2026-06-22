@@ -51,8 +51,7 @@ actor Diarizer {
             models = loaded
             return loaded
         } catch {
-            let reason = String(describing: error)
-            throw TranscriptionError.diarizationFailed("couldn't load the diarization model: \(reason)")
+            throw TranscriptionError.diarizationFailed("couldn't load the diarization model: \(error)")
         }
     }
 
@@ -101,22 +100,14 @@ actor Diarizer {
         logger.log("Diarized \(fileURL.lastPathComponent, privacy: .public): \(summary, privacy: .public)")
 
         guard ProcessInfo.processInfo.environment["HARK_DIARIZATION_DEBUG"] != nil else { return }
-        let dump = segments.map {
-            DebugSegment(
-                start: Double($0.startTimeSeconds),
-                end: Double($0.endTimeSeconds),
-                speaker: $0.speakerId,
-                quality: Double($0.qualityScore)
-            )
-        }
+        let dump = segments.map(DebugSegment.init)
         let debugURL = fileURL.deletingLastPathComponent().appendingPathComponent("diarization.debug.json")
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             try encoder.encode(dump).write(to: debugURL, options: .atomic)
         } catch {
-            let reason = String(describing: error)
-            logger.error("Couldn't write diarization debug dump: \(reason, privacy: .public)")
+            logger.error("Couldn't write diarization debug dump: \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -126,5 +117,12 @@ actor Diarizer {
         let end: Double
         let speaker: String
         let quality: Double
+
+        init(_ segment: TimedSpeakerSegment) {
+            start = Double(segment.startTimeSeconds)
+            end = Double(segment.endTimeSeconds)
+            speaker = segment.speakerId
+            quality = Double(segment.qualityScore)
+        }
     }
 }
