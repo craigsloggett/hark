@@ -69,6 +69,7 @@ targets:
       - Tests
     dependencies:
       - target: hark
+      - package: FluidAudio
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.craigsloggett.harkTests

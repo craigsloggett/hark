@@ -10,10 +10,9 @@ actor Transcriber {
 
     private var manager: AsrManager?
 
-    /// Parakeet's hard floor: shorter audio throws `invalidAudioData`, so silent tracks are
-    /// reported as no tokens instead. 4800 samples is 0.3s at the model's 16 kHz.
-    private static let minimumSamples = 4800
-    private static let modelSampleRate = 16000.0
+    /// Used to check for silent or too-short tracks.
+    private static let minimumSamples = ASRConstants.minimumRequiredSamples(forSampleRate: ASRConstants.sampleRate)
+    private static let modelSampleRate = Double(ASRConstants.sampleRate)
 
     /// Transcribes one 16 kHz mono track into tokens carrying per-token start/end times.
     /// - Parameters:
@@ -28,7 +27,8 @@ actor Transcriber {
             throw TranscriptionError.unreadableAudio(fileURL)
         }
         let format = audioFile.processingFormat
-        let estimatedSamples = Int((Double(audioFile.length) * Self.modelSampleRate / format.sampleRate).rounded(.up))
+        let modelRateSamples = Double(audioFile.length) * Self.modelSampleRate / format.sampleRate
+        let estimatedSamples = Int(modelRateSamples.rounded(.up))
         guard estimatedSamples >= Self.minimumSamples else { return [] }
 
         let manager = try await loadedManager()
