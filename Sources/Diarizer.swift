@@ -2,30 +2,31 @@ import FluidAudio
 import Foundation
 import OSLog
 
-/// Diarizes the system-audio track into speaker turns with FluidAudio's on-device
-/// LS-EEND model. The model is non-`Sendable`, so it lives behind this actor on a single
-/// isolation domain.
+/// Diarizes the system-audio track with FluidAudio's offline pyannote community-1 pipeline.
 actor Diarizer {
     private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "Diarizer")
 
-    private var model: LSEENDDiarizer?
+    private var models: OfflineDiarizerModels?
+    private let config = Diarizer.configFromEnvironment()
 
-    /// Diarizes a 16 kHz mono recording into turns sorted by start time. Turns may overlap
-    /// when speakers talk at once.
-    /// - Returns: the speaker turns, or an empty array when the track is silent.
+    /// Diarizes a 16 kHz mono recording into speaker turns sorted by start time.
+    /// - Returns: the turns, or an empty array when the track is silent.
     func turns(in fileURL: URL) async throws -> [DiarizationTurn] {
-        let diarizer = try await loadedModel()
-        let timeline: DiarizerTimeline
+        let manager = OfflineDiarizerManager(config: config)
+        try await manager.initialize(models: loadedModels())
+
+        let result: DiarizationResult
         do {
-            // Each recording is a fresh session; don't carry speaker identities across files.
-            timeline = try diarizer.processComplete(audioFileURL: fileURL, keepingEnrolledSpeakers: false)
+            result = try await manager.process(fileURL)
+        } catch OfflineDiarizationError.noSpeechDetected {
+            // Treat silence as an empty timeline rather than an error.
+            return []
         } catch {
             throw TranscriptionError.diarizationFailed(String(describing: error))
         }
 
-        let segments = timeline.speakers.values
-            .flatMap(\.finalizedSegments)
-            .sorted { $0.startFrame < $1.startFrame }
+        // Sort by time before mapping.
+        let segments = result.segments.sorted { $0.startTimeSeconds < $1.startTimeSeconds }
         report(segments, for: fileURL)
 
         guard !segments.isEmpty else {
@@ -34,55 +35,75 @@ actor Diarizer {
         }
         return segments.map {
             DiarizationTurn(
-                start: Double($0.startTime),
-                end: Double($0.endTime),
-                speakerId: String($0.speakerIndex)
+                start: Double($0.startTimeSeconds),
+                end: Double($0.endTimeSeconds),
+                speakerId: $0.speakerId
             )
         }
     }
 
-    private func loadedModel() async throws -> LSEENDDiarizer {
-        if let model { return model }
+    private func loadedModels() async throws -> OfflineDiarizerModels {
+        if let models { return models }
         do {
-            let loaded = try await LSEENDDiarizer(variant: .dihard3)
-            model = loaded
+            let loaded = try await OfflineDiarizerModels.load()
+            models = loaded
             return loaded
         } catch {
-            let reason = String(describing: error)
-            throw TranscriptionError.diarizationFailed("couldn't load the diarization model: \(reason)")
+            throw TranscriptionError.diarizationFailed("couldn't load the diarization model: \(error)")
         }
     }
 
-    /// Logs a summary of the result and, when `HARK_DIARIZATION_DEBUG` is set, writes the raw
-    /// segments to `diarization.debug.json` next to the input.
-    private func report(_ segments: [DiarizerSegment], for fileURL: URL) {
-        let speakers = Set(segments.map(\.speakerIndex)).count
-        let speech = segments.reduce(Float(0)) { $0 + $1.duration }
-        let activities = segments.map(\.activity)
-        let avgActivity = activities.isEmpty ? 0 : activities.reduce(0, +) / Float(activities.count)
+    /// The Euclidean distance threshold for unit-normalized embeddings: defaults to 0.6
+    /// - Controls how aggressively embeddings get merged into one speaker.
+    private static let defaultClusterThreshold = 0.75
+
+    /// The VBx warm-start clustering parameter: defaults to 0.07.
+    /// - Controls how aggressively embeddings are split into separate speakers.
+    private static let defaultFa = 0.13
+
+    /// Builds the config from community-1 defaults, applying any `HARK_DIARIZATION_*` overrides.
+    private static func configFromEnvironment() -> OfflineDiarizerConfig {
+        let env = ProcessInfo.processInfo
+        return OfflineDiarizerConfig(
+            clusteringThreshold: env.double(forKey: "HARK_DIARIZATION_CLUSTER_THRESHOLD")
+                ?? defaultClusterThreshold,
+            Fa: env.double(forKey: "HARK_DIARIZATION_FA") ?? defaultFa,
+            segmentationStepRatio: env.double(forKey: "HARK_DIARIZATION_STEP_RATIO")
+                ?? OfflineDiarizerConfig.Segmentation.community.stepRatio,
+            minSegmentDuration: env.seconds(forKey: "HARK_DIARIZATION_MIN_SEGMENT_MS")
+                ?? OfflineDiarizerConfig.Embedding.community.minSegmentDurationSeconds
+        )
+    }
+
+    /// Logs a one-line diarization summary.
+    private func report(_ segments: [TimedSpeakerSegment], for fileURL: URL) {
+        let speakers = Set(segments.map(\.speakerId)).count
+        let speech = segments.reduce(Float(0)) { $0 + $1.durationSeconds }
+        let qualities = segments.map(\.qualityScore)
+        let avgQuality = qualities.isEmpty ? 0 : qualities.reduce(0, +) / Float(qualities.count)
         let summary = String(
-            format: "%d turns, %d speakers, %.1fs speech, avg activity %.2f",
-            segments.count, speakers, speech, avgActivity
+            format: "%d turns, %d speakers, %.1fs speech, avg quality %.2f (threshold %.2f, step %.2f, minSeg %.2fs)",
+            segments.count, speakers, speech, avgQuality,
+            config.clusteringThreshold, config.segmentationStepRatio, config.minSegmentDuration
         )
         logger.log("Diarized \(fileURL.lastPathComponent, privacy: .public): \(summary, privacy: .public)")
+        writeDebugDump(segments, for: fileURL)
+    }
 
-        guard ProcessInfo.processInfo.environment["HARK_DIARIZATION_DEBUG"] != nil else { return }
-        let dump = segments.map {
-            DebugSegment(
-                start: Double($0.startTime),
-                end: Double($0.endTime),
-                speaker: $0.speakerIndex,
-                activity: Double($0.activity)
-            )
-        }
+    // MARK: Debug
+
+    /// When `HARK_DIARIZATION_DEBUG` is set, writes the raw segments to `diarization.debug.json`
+    /// next to the input.
+    private func writeDebugDump(_ segments: [TimedSpeakerSegment], for fileURL: URL) {
+        guard ProcessInfo.processInfo.flag(forKey: "HARK_DIARIZATION_DEBUG") else { return }
+        let dump = segments.map(DebugSegment.init)
         let debugURL = fileURL.deletingLastPathComponent().appendingPathComponent("diarization.debug.json")
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             try encoder.encode(dump).write(to: debugURL, options: .atomic)
         } catch {
-            let reason = String(describing: error)
-            logger.error("Couldn't write diarization debug dump: \(reason, privacy: .public)")
+            logger.error("Couldn't write diarization debug dump: \(error, privacy: .public)")
         }
     }
 
@@ -90,7 +111,14 @@ actor Diarizer {
     private struct DebugSegment: Encodable {
         let start: Double
         let end: Double
-        let speaker: Int
-        let activity: Double
+        let speaker: String
+        let quality: Double
+
+        init(_ segment: TimedSpeakerSegment) {
+            start = Double(segment.startTimeSeconds)
+            end = Double(segment.endTimeSeconds)
+            speaker = segment.speakerId
+            quality = Double(segment.qualityScore)
+        }
     }
 }

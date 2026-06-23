@@ -30,8 +30,6 @@
 	<string>Copyright © 2026 Craig Sloggett. All rights reserved.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Hark needs microphone access to record meetings.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Hark transcribes your recorded meetings on this device.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

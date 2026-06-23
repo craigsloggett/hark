@@ -3,6 +3,8 @@ import Foundation
 import Testing
 
 struct TranscriptTests {
+    // MARK: Labels and timestamps
+
     @Test func speakerLabelsReadAsPersonas() {
         #expect(Speaker.you.label == "You")
         #expect(Speaker.remote(1).label == "Speaker 1")
@@ -14,6 +16,8 @@ struct TranscriptTests {
         #expect(Transcript.timestamp(75) == "00:01:15")
         #expect(Transcript.timestamp(3661) == "01:01:01")
     }
+
+    // MARK: Merging and shifting
 
     @Test func mergingOrdersSegmentsByStartTime() {
         let you = [
@@ -51,6 +55,8 @@ struct TranscriptTests {
         #expect(merged.segments.map(\.text) == ["A", "B"])
     }
 
+    // MARK: Plain text
+
     @Test func plainTextRendersTimestampedSpeakerLines() {
         let transcript = Transcript(segments: [
             TranscriptSegment(start: 3, end: 5, speaker: .you, text: "Hello"),
@@ -64,6 +70,8 @@ struct TranscriptTests {
         """
         #expect(transcript.plainText() == expected)
     }
+
+    // MARK: Codable
 
     @Test func segmentRoundTripsThroughJSON() throws {
         let segment = TranscriptSegment(start: 1.5, end: 2.5, speaker: .remote(3), text: #"Quote "x""#)

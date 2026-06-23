@@ -1,57 +1,55 @@
-import AVFoundation
-import CoreMedia
 import Foundation
-import Speech
 
 enum TranscriptionError: LocalizedError {
-    case localeNotSupported(Locale)
     case unreadableAudio(URL)
+    case transcriptionFailed(String)
     case diarizationFailed(String)
 
     var errorDescription: String? {
         switch self {
-        case let .localeNotSupported(locale):
-            "Transcription isn't available for \(locale.identifier)."
         case let .unreadableAudio(url):
             "Couldn't read \(url.lastPathComponent)."
+        case let .transcriptionFailed(reason):
+            "Couldn't transcribe the recording: \(reason)"
         case let .diarizationFailed(reason):
             "Couldn't tell the speakers apart: \(reason)"
         }
     }
 }
 
-/// Transcribes a recording session's two tracks on-device with `SpeechAnalyzer`.
+/// Transcribes a recording session's two tracks on-device with FluidAudio's Parakeet model.
 struct TranscriptionService {
+    private let transcriber = Transcriber()
     private let diarizer = Diarizer()
 
-    /// Transcribes `mic.wav` as "You", diarizes and transcribes `system.wav` into the
-    /// remote speakers, and merges everything by start time.
-    /// - Parameter offset: Seconds the system track started behind the mic, added to its
-    ///   segments so both tracks share the mic's timeline before merging.
+    /// Transcribes `mic.wav` as "You", diarizes and transcribes `system.wav` into the remote
+    /// speakers, and merges everything by start time.
+    /// - Parameters:
+    ///   - offset: seconds the system track started behind the mic, added to its segments so
+    ///     both tracks share the mic's timeline before merging.
+    ///   - locale: hints the multilingual model's script filtering.
     func transcribeSession(
         at sessionURL: URL,
         offset: TimeInterval = 0,
         locale: Locale = .current
     ) async throws -> Transcript {
-        guard let supported = await SpeechTranscriber.supportedLocale(equivalentTo: locale) else {
-            throw TranscriptionError.localeNotSupported(locale)
-        }
-        try await ensureModel(for: supported)
-
         let micURL = sessionURL.appendingPathComponent("mic.wav")
         let systemURL = sessionURL.appendingPathComponent("system.wav")
+        let gap = Self.utteranceGap
 
-        let you = try await transcribe(fileURL: micURL, locale: supported)
-            .map { $0.segment(as: .you) }
+        let you = try await transcriber.tokens(in: micURL, locale: locale)
+            .segments(resolving: { _ in .you }, gap: gap)
 
-        let remoteUtterances = try await transcribe(fileURL: systemURL, locale: supported)
-        // Diarization only labels remote utterances; skip it when there are none.
-        let turns = remoteUtterances.isEmpty ? [] : try await diarizer.turns(in: systemURL)
-        let timeline = DiarizedTimeline(turns: turns)
-        let them = remoteUtterances.map { utterance in
+        let systemTokens = try await transcriber.tokens(in: systemURL, locale: locale)
+        // Diarization only labels remote speech; skip it when the track is silent.
+        let them: [TranscriptSegment]
+        if systemTokens.isEmpty {
+            them = []
+        } else {
+            let turns = try await diarizer.turns(in: systemURL)
+            let timeline = DiarizedTimeline(turns: turns)
             // Fall back to one speaker when diarization found no turns to attribute to.
-            let speaker = timeline.speaker(forUtteranceFrom: utterance.start, to: utterance.end) ?? .remote(1)
-            return utterance.segment(as: speaker)
+            them = systemTokens.segments(resolving: { timeline.speaker(at: $0) ?? .remote(1) }, gap: gap)
         }
 
         // `them` is built on the system file's own timeline; shifting realigns it onto the mic's.
@@ -59,7 +57,7 @@ struct TranscriptionService {
     }
 
     /// Writes `transcript.txt` and `transcript.json` into the session folder.
-    /// - Returns: The URL of the written `transcript.txt`.
+    /// - Returns: the URL of the written `transcript.txt`.
     func write(_ transcript: Transcript, to sessionURL: URL) throws -> URL {
         let textURL = sessionURL.appendingPathComponent("transcript.txt")
         try (transcript.plainText() + "\n").write(to: textURL, atomically: true, encoding: .utf8)
@@ -72,80 +70,9 @@ struct TranscriptionService {
         return textURL
     }
 
-    /// One transcribed utterance before a speaker is attributed to it.
-    private struct Utterance {
-        let start: Double
-        let end: Double
-        let text: String
-
-        func segment(as speaker: Speaker) -> TranscriptSegment {
-            TranscriptSegment(start: start, end: end, speaker: speaker, text: text)
-        }
-    }
-
-    private func transcribe(fileURL: URL, locale: Locale) async throws -> [Utterance] {
-        let audioFile: AVAudioFile
-        do {
-            audioFile = try AVAudioFile(forReading: fileURL)
-        } catch {
-            throw TranscriptionError.unreadableAudio(fileURL)
-        }
-        // The analyzer's results stream never finishes for an empty track.
-        guard audioFile.length > 0 else { return [] }
-
-        let transcriber = Self.makeTranscriber(locale: locale)
-        let analyzer = SpeechAnalyzer(modules: [transcriber])
-        // Returns immediately; `finishAfterFile` ends the results stream once the file is consumed.
-        try await analyzer.start(inputAudioFile: audioFile, finishAfterFile: true)
-
-        var utterances: [Utterance] = []
-        for try await result in transcriber.results {
-            utterances.append(Utterance(
-                start: result.range.start.seconds,
-                end: result.range.end.seconds,
-                text: String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
-            ))
-        }
-        return utterances
-    }
-
-    /// Installs the locale's speech model then reserves it.
-    private func ensureModel(for locale: Locale) async throws {
-        let installed = await SpeechTranscriber.installedLocales.containsLocale(matching: locale)
-        if !installed {
-            let transcriber = Self.makeTranscriber(locale: locale)
-            if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-                try await request.downloadAndInstall()
-            }
-        }
-        try await reserve(locale)
-    }
-
-    /// Reserves `locale` with `AssetInventory` if it isn't already, freeing an existing
-    /// reservation when the per-app limit is reached.
-    private func reserve(_ locale: Locale) async throws {
-        let reserved = await AssetInventory.reservedLocales
-        guard !reserved.containsLocale(matching: locale) else { return }
-        if try await AssetInventory.reserve(locale: locale) { return }
-        if let existing = reserved.first {
-            _ = await AssetInventory.release(reservedLocale: existing)
-        }
-        _ = try await AssetInventory.reserve(locale: locale)
-    }
-
-    private static func makeTranscriber(locale: Locale) -> SpeechTranscriber {
-        SpeechTranscriber(
-            locale: locale,
-            transcriptionOptions: [],
-            reportingOptions: [],
-            attributeOptions: [.audioTimeRange]
-        )
-    }
-}
-
-private extension Sequence<Locale> {
-    /// Whether any element matches `locale` by BCP-47 identifier.
-    func containsLocale(matching locale: Locale) -> Bool {
-        contains { $0.identifier(.bcp47) == locale.identifier(.bcp47) }
+    /// The silence between tokens, in seconds, that ends an utterance. Override with
+    /// `HARK_UTTERANCE_GAP_MS` to tune segmentation on real meetings without rebuilding.
+    private static var utteranceGap: Double {
+        ProcessInfo.processInfo.seconds(forKey: "HARK_UTTERANCE_GAP_MS") ?? 0.4
     }
 }

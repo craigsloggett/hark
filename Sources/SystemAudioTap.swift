@@ -31,7 +31,8 @@ final class SystemAudioTap: @unchecked Sendable {
         }
     }
 
-    /// Sample at 16 kHz mono Int16, independent of the device's live rate.
+    /// Sample at 16 kHz mono Int16, independent of the device's live rate. The fixed, valid
+    /// arguments mean the failable initializer never returns nil.
     private static let canonicalFormat = AVAudioFormat(
         commonFormat: .pcmFormatInt16,
         sampleRate: 16000,
@@ -295,7 +296,7 @@ extension SystemAudioTap {
             tapFrameCount = 0
             tapSawSignal = false
         }
-        logger.debug("tap activity: \(callbacks) callbacks, \(frames) frames, signal=\(signal), in=\(Int(rate)) Hz")
+        logger.debug("Tap activity: \(callbacks) callbacks, \(frames) frames, signal=\(signal), in=\(Int(rate)) Hz")
     }
 
     /// Distinguishes real audio from a tap delivering only silence.
