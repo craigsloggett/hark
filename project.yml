@@ -40,18 +40,6 @@ targets:
         - variable: HARK_ASR_DEBUG
           value: '1'
           isEnabled: false
-        - variable: HARK_DIARIZATION_CLUSTER_THRESHOLD
-          value: '0.75'
-          isEnabled: false
-        - variable: HARK_DIARIZATION_FA
-          value: '0.13'
-          isEnabled: false
-        - variable: HARK_DIARIZATION_MIN_SEGMENT_MS
-          value: '1000'
-          isEnabled: false
-        - variable: HARK_DIARIZATION_STEP_RATIO
-          value: '0.2'
-          isEnabled: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.craigsloggett.hark
