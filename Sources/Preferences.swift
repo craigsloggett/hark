@@ -1,0 +1,83 @@
+import FluidAudio
+import Foundation
+
+/// User-tunable settings persisted in `UserDefaults`, the macOS defaults system.
+enum Preferences {
+    /// `UserDefaults` keys, unprefixed since the app's domain already namespaces them.
+    enum Key {
+        static let diarizationClusteringThreshold = "diarizationClusteringThreshold"
+        static let diarizationFa = "diarizationFa"
+        static let diarizationStepRatio = "diarizationStepRatio"
+        static let diarizationMinSegmentDuration = "diarizationMinSegmentDuration"
+        static let utteranceGap = "utteranceGap"
+    }
+
+    /// Defaults, in seconds where applicable. The two that defer to FluidAudio reference its
+    /// constants so they track the library.
+    enum Default {
+        /// Euclidean distance threshold for clustering speaker embeddings; higher keeps more of
+        /// them apart as separate speakers.
+        static let diarizationClusteringThreshold = 0.75
+
+        /// VBx warm-start clustering parameter; higher splits embeddings into more speakers, lower
+        /// merges them.
+        static let diarizationFa = 0.13
+
+        /// Silence between tokens, in seconds, that ends an utterance.
+        static let utteranceGap = 0.4
+
+        /// Community-1's segmentation step ratio; lower sharpens turn boundaries at roughly 2x cost.
+        static var diarizationStepRatio: Double {
+            OfflineDiarizerConfig.Segmentation.community.stepRatio
+        }
+
+        /// Community-1's minimum embedding-segment length, in seconds; lower lets brief turns get
+        /// their own speaker embedding.
+        static var diarizationMinSegmentDuration: Double {
+            OfflineDiarizerConfig.Embedding.community.minSegmentDurationSeconds
+        }
+    }
+
+    /// Seeds the registration domain so `defaults read` shows the effective defaults; reads fall
+    /// back to `Default` without it.
+    static func register(into defaults: UserDefaults = .standard) {
+        defaults.register(defaults: [
+            Key.diarizationClusteringThreshold: Default.diarizationClusteringThreshold,
+            Key.diarizationFa: Default.diarizationFa,
+            Key.diarizationStepRatio: Default.diarizationStepRatio,
+            Key.diarizationMinSegmentDuration: Default.diarizationMinSegmentDuration,
+            Key.utteranceGap: Default.utteranceGap,
+        ])
+    }
+
+    static var diarizationClusteringThreshold: Double {
+        resolved(Key.diarizationClusteringThreshold, default: Default.diarizationClusteringThreshold)
+    }
+
+    static var diarizationFa: Double {
+        resolved(Key.diarizationFa, default: Default.diarizationFa)
+    }
+
+    static var diarizationStepRatio: Double {
+        resolved(Key.diarizationStepRatio, default: Default.diarizationStepRatio)
+    }
+
+    static var diarizationMinSegmentDuration: Double {
+        resolved(Key.diarizationMinSegmentDuration, default: Default.diarizationMinSegmentDuration)
+    }
+
+    static var utteranceGap: Double {
+        resolved(Key.utteranceGap, default: Default.utteranceGap)
+    }
+
+    /// The stored `Double` for `key`, or `fallback` when it is unset.
+    static func resolved(
+        _ key: String,
+        default fallback: Double,
+        in defaults: UserDefaults = .standard
+    ) -> Double {
+        // `double(forKey:)` can't tell an unset key from a stored 0, so read the optional object.
+        guard let stored = defaults.object(forKey: key) as? Double else { return fallback }
+        return stored
+    }
+}

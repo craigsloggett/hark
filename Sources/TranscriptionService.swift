@@ -35,7 +35,7 @@ struct TranscriptionService {
     ) async throws -> Transcript {
         let micURL = sessionURL.appendingPathComponent("mic.wav")
         let systemURL = sessionURL.appendingPathComponent("system.wav")
-        let gap = Self.utteranceGap
+        let gap = Preferences.utteranceGap
 
         let you = try await transcriber.tokens(in: micURL, locale: locale)
             .segments(resolving: { _ in .you }, gap: gap)
@@ -68,11 +68,5 @@ struct TranscriptionService {
         try encoder.encode(transcript.segments).write(to: jsonURL, options: .atomic)
 
         return textURL
-    }
-
-    /// The silence between tokens, in seconds, that ends an utterance. Override with
-    /// `HARK_UTTERANCE_GAP_MS` to tune segmentation on real meetings without rebuilding.
-    private static var utteranceGap: Double {
-        ProcessInfo.processInfo.seconds(forKey: "HARK_UTTERANCE_GAP_MS") ?? 0.4
     }
 }

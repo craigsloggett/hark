@@ -7,7 +7,7 @@ actor Diarizer {
     private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "Diarizer")
 
     private var models: OfflineDiarizerModels?
-    private let config = Diarizer.configFromEnvironment()
+    private let config = Diarizer.configFromPreferences()
 
     /// Diarizes a 16 kHz mono recording into speaker turns sorted by start time.
     /// - Returns: the turns, or an empty array when the track is silent.
@@ -53,25 +53,13 @@ actor Diarizer {
         }
     }
 
-    /// The Euclidean distance threshold for unit-normalized embeddings: defaults to 0.6
-    /// - Controls how aggressively embeddings get merged into one speaker.
-    private static let defaultClusterThreshold = 0.75
-
-    /// The VBx warm-start clustering parameter: defaults to 0.07.
-    /// - Controls how aggressively embeddings are split into separate speakers.
-    private static let defaultFa = 0.13
-
-    /// Builds the config from community-1 defaults, applying any `HARK_DIARIZATION_*` overrides.
-    private static func configFromEnvironment() -> OfflineDiarizerConfig {
-        let env = ProcessInfo.processInfo
-        return OfflineDiarizerConfig(
-            clusteringThreshold: env.double(forKey: "HARK_DIARIZATION_CLUSTER_THRESHOLD")
-                ?? defaultClusterThreshold,
-            Fa: env.double(forKey: "HARK_DIARIZATION_FA") ?? defaultFa,
-            segmentationStepRatio: env.double(forKey: "HARK_DIARIZATION_STEP_RATIO")
-                ?? OfflineDiarizerConfig.Segmentation.community.stepRatio,
-            minSegmentDuration: env.seconds(forKey: "HARK_DIARIZATION_MIN_SEGMENT_MS")
-                ?? OfflineDiarizerConfig.Embedding.community.minSegmentDurationSeconds
+    /// Builds the config from the diarization preferences (see `Preferences.Default`).
+    private static func configFromPreferences() -> OfflineDiarizerConfig {
+        OfflineDiarizerConfig(
+            clusteringThreshold: Preferences.diarizationClusteringThreshold,
+            Fa: Preferences.diarizationFa,
+            segmentationStepRatio: Preferences.diarizationStepRatio,
+            minSegmentDuration: Preferences.diarizationMinSegmentDuration
         )
     }
 
