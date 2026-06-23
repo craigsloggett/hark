@@ -38,7 +38,9 @@ struct DiarizedTimeline {
     /// The speaker of the turn whose midpoint is nearest `time`. Ties go to the earliest turn.
     private func nearestSpeaker(to time: Double) -> Speaker? {
         let nearest = turns.min { lhs, rhs in
-            abs((lhs.start + lhs.end) / 2 - time) < abs((rhs.start + rhs.end) / 2 - time)
+            let lhsDistance = abs((lhs.start + lhs.end) / 2 - time)
+            let rhsDistance = abs((rhs.start + rhs.end) / 2 - time)
+            return lhsDistance < rhsDistance
         }
         return nearest.flatMap { speakers[$0.speakerId] }
     }

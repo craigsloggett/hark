@@ -32,8 +32,6 @@ extension [TimedToken] {
         var segments: [TranscriptSegment] = []
         var run: [TimedToken] = []
         var runSpeaker: Speaker?
-        // End of the last real word in the run. Silence is measured from here so a punctuation
-        // token that floated forward in time can't mask the gap before the next utterance.
         var lastWordEnd: Double?
 
         func flush() {
@@ -59,7 +57,8 @@ extension [TimedToken] {
                 continue
             }
 
-            let tokenSpeaker = speaker((token.start + token.end) / 2)
+            let midpoint = (token.start + token.end) / 2
+            let tokenSpeaker = speaker(midpoint)
             let silent = lastWordEnd.map { token.start - $0 > gap } ?? false
             if runSpeaker == tokenSpeaker, !silent {
                 run.append(token)
