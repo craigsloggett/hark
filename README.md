@@ -4,11 +4,11 @@
 
 <h1 align="center">Hark</h1>
 
-Hark records your microphone and the audio you hear, then turns the conversation into a clean, speaker-labeled transcript. Everything runs on-device: nothing is uploaded, and no account or setup is required.
+Hark is an app that produces personal meeting transcriptions with diarization for offline note-taking. There is no subscription, no cloud service, nothing leaves your device.
 
-The goal is a simple utility that just works and feels delightful. Open it, press record, and get a transcript you can actually read. You are labeled You, and each other participant becomes Speaker 1, Speaker 2, and so on.
+The goal is a simple utility that just works and feels delightful. Start transcribing with a key stroke, and get a transcript you can actually read. You are labeled You, and each other participant becomes Speaker 1, Speaker 2, and so on. Hark allows you to customize speaker labels and can automatically detect speakers over time, automatically applying your custom label in future transcripts.
 
-- Captures your microphone and the system audio you hear as two synchronized tracks.
+- Able to capture any meeting, regardless of the application you are meeting in.
 - Transcribes and separates speakers on-device into one merged timeline.
 - Stays fully local and private, with no cloud services in the loop.
 
