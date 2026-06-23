@@ -66,15 +66,21 @@ actor Transcriber {
         return Language(rawValue: code)
     }
 
-    /// Logs a one-line summary and, when `HARK_ASR_DEBUG` is set, writes the raw tokens to
-    /// `asr.<track>.debug.json` next to the input for tuning the utterance gap.
+    /// Logs a one-line transcription summary.
     private func report(_ result: ASRResult, tokens: [TimedToken], for fileURL: URL) {
         let summary = String(
             format: "%d tokens, %.1fs audio, confidence %.2f, %.1fx realtime",
             tokens.count, result.duration, result.confidence, result.rtfx
         )
         logger.log("Transcribed \(fileURL.lastPathComponent, privacy: .public): \(summary, privacy: .public)")
+        writeDebugDump(tokens, for: fileURL)
+    }
 
+    // MARK: Debug
+
+    /// When `HARK_ASR_DEBUG` is set, writes the raw tokens to `asr.<track>.debug.json` next to the
+    /// input for tuning the utterance gap.
+    private func writeDebugDump(_ tokens: [TimedToken], for fileURL: URL) {
         guard ProcessInfo.processInfo.flag(forKey: "HARK_ASR_DEBUG") else { return }
         let track = fileURL.deletingPathExtension().lastPathComponent
         let debugURL = fileURL.deletingLastPathComponent().appendingPathComponent("asr.\(track).debug.json")

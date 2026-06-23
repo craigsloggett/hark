@@ -75,8 +75,7 @@ actor Diarizer {
         )
     }
 
-    /// Logs a summary and, when `HARK_DIARIZATION_DEBUG` is set, writes the raw segments to
-    /// `diarization.debug.json` next to the input.
+    /// Logs a one-line diarization summary.
     private func report(_ segments: [TimedSpeakerSegment], for fileURL: URL) {
         let speakers = Set(segments.map(\.speakerId)).count
         let speech = segments.reduce(Float(0)) { $0 + $1.durationSeconds }
@@ -88,7 +87,14 @@ actor Diarizer {
             config.clusteringThreshold, config.segmentationStepRatio, config.minSegmentDuration
         )
         logger.log("Diarized \(fileURL.lastPathComponent, privacy: .public): \(summary, privacy: .public)")
+        writeDebugDump(segments, for: fileURL)
+    }
 
+    // MARK: Debug
+
+    /// When `HARK_DIARIZATION_DEBUG` is set, writes the raw segments to `diarization.debug.json`
+    /// next to the input.
+    private func writeDebugDump(_ segments: [TimedSpeakerSegment], for fileURL: URL) {
         guard ProcessInfo.processInfo.flag(forKey: "HARK_DIARIZATION_DEBUG") else { return }
         let dump = segments.map(DebugSegment.init)
         let debugURL = fileURL.deletingLastPathComponent().appendingPathComponent("diarization.debug.json")
