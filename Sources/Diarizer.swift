@@ -2,9 +2,7 @@ import FluidAudio
 import Foundation
 import OSLog
 
-/// Diarizes the system-audio track with FluidAudio's offline pyannote community-1 pipeline. The
-/// models are `Sendable` and cached here; the manager is not, so a fresh one is built per call and
-/// never leaves the actor.
+/// Diarizes the system-audio track with FluidAudio's offline pyannote community-1 pipeline.
 actor Diarizer {
     private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "Diarizer")
 
@@ -21,13 +19,13 @@ actor Diarizer {
         do {
             result = try await manager.process(fileURL)
         } catch OfflineDiarizationError.noSpeechDetected {
-            // The pipeline throws on silence; treat it as an empty timeline rather than an error.
+            // Treat silence as an empty timeline rather than an error.
             return []
         } catch {
             throw TranscriptionError.diarizationFailed(String(describing: error))
         }
 
-        // Offline output is grouped by speaker, not time, so sort before mapping.
+        // Sort by time before mapping.
         let segments = result.segments.sorted { $0.startTimeSeconds < $1.startTimeSeconds }
         report(segments, for: fileURL)
 
@@ -55,10 +53,12 @@ actor Diarizer {
         }
     }
 
-    /// Community-1's stock 0.6 under-clusters hark's mixed remote-meeting audio; 0.75 separates the speakers.
+    /// The Euclidean distance threshold for unit-normalized embeddings: defaults to 0.6
+    /// - Controls how aggressively embeddings get merged into one speaker.
     private static let defaultClusterThreshold = 0.75
 
-    /// 0.13 separates close-voiced remote speakers without splitting the dominant speaker's quieter passages.
+    /// The VBx warm-start clustering parameter: defaults to 0.07.
+    /// - Controls how aggressively embeddings are split into separate speakers.
     private static let defaultFa = 0.13
 
     /// Builds the config from community-1 defaults, applying any `HARK_DIARIZATION_*` overrides.
