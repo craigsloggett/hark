@@ -63,26 +63,16 @@ actor Diarizer {
 
     /// Builds the config from community-1 defaults, applying any `HARK_DIARIZATION_*` overrides.
     private static func configFromEnvironment() -> OfflineDiarizerConfig {
-        let env = ProcessInfo.processInfo.environment
+        let env = ProcessInfo.processInfo
         return OfflineDiarizerConfig(
-            clusteringThreshold: double(env, "HARK_DIARIZATION_CLUSTER_THRESHOLD")
+            clusteringThreshold: env.double(forKey: "HARK_DIARIZATION_CLUSTER_THRESHOLD")
                 ?? defaultClusterThreshold,
-            Fa: double(env, "HARK_DIARIZATION_FA") ?? defaultFa,
-            segmentationStepRatio: double(env, "HARK_DIARIZATION_STEP_RATIO")
+            Fa: env.double(forKey: "HARK_DIARIZATION_FA") ?? defaultFa,
+            segmentationStepRatio: env.double(forKey: "HARK_DIARIZATION_STEP_RATIO")
                 ?? OfflineDiarizerConfig.Segmentation.community.stepRatio,
-            minSegmentDuration: seconds(env, "HARK_DIARIZATION_MIN_SEGMENT_MS")
+            minSegmentDuration: env.seconds(forKey: "HARK_DIARIZATION_MIN_SEGMENT_MS")
                 ?? OfflineDiarizerConfig.Embedding.community.minSegmentDurationSeconds
         )
-    }
-
-    private static func double(_ env: [String: String], _ key: String) -> Double? {
-        guard let raw = env[key], let value = Double(raw) else { return nil }
-        return value
-    }
-
-    private static func seconds(_ env: [String: String], _ key: String) -> Double? {
-        guard let milliseconds = double(env, key) else { return nil }
-        return milliseconds / 1000
     }
 
     /// Logs a summary and, when `HARK_DIARIZATION_DEBUG` is set, writes the raw segments to
@@ -99,7 +89,7 @@ actor Diarizer {
         )
         logger.log("Diarized \(fileURL.lastPathComponent, privacy: .public): \(summary, privacy: .public)")
 
-        guard ProcessInfo.processInfo.environment["HARK_DIARIZATION_DEBUG"] != nil else { return }
+        guard ProcessInfo.processInfo.flag(forKey: "HARK_DIARIZATION_DEBUG") else { return }
         let dump = segments.map(DebugSegment.init)
         let debugURL = fileURL.deletingLastPathComponent().appendingPathComponent("diarization.debug.json")
         do {
@@ -107,7 +97,7 @@ actor Diarizer {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             try encoder.encode(dump).write(to: debugURL, options: .atomic)
         } catch {
-            logger.error("Couldn't write diarization debug dump: \(String(describing: error), privacy: .public)")
+            logger.error("Couldn't write diarization debug dump: \(error, privacy: .public)")
         }
     }
 

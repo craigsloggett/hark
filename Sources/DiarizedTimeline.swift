@@ -22,26 +22,6 @@ struct DiarizedTimeline {
         self.speakers = speakers
     }
 
-    /// Attributes one transcribed utterance to a speaker by maximum temporal overlap,
-    /// falling back to the nearest turn by midpoint when nothing overlaps (the utterance
-    /// landed in a diarization gap).
-    /// - Returns: the winning `Speaker`, or `nil` when the timeline has no turns.
-    func speaker(forUtteranceFrom start: Double, to end: Double) -> Speaker? {
-        guard !turns.isEmpty else { return nil }
-
-        var best: (speakerId: String, overlap: Double)?
-        for turn in turns {
-            let overlap = max(0, min(end, turn.end) - max(start, turn.start))
-            if overlap > (best?.overlap ?? 0) {
-                best = (turn.speakerId, overlap)
-            }
-        }
-        if let best {
-            return speakers[best.speakerId]
-        }
-        return nearestSpeaker(to: (start + end) / 2)
-    }
-
     /// Attributes one token to a speaker by the turn its `time` falls in, falling back to the
     /// nearest turn by midpoint when it lands in a diarization gap.
     /// - Returns: the containing speaker, or `nil` when the timeline has no turns.

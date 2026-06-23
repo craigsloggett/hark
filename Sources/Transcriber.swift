@@ -75,7 +75,7 @@ actor Transcriber {
         )
         logger.log("Transcribed \(fileURL.lastPathComponent, privacy: .public): \(summary, privacy: .public)")
 
-        guard ProcessInfo.processInfo.environment["HARK_ASR_DEBUG"] != nil else { return }
+        guard ProcessInfo.processInfo.flag(forKey: "HARK_ASR_DEBUG") else { return }
         let track = fileURL.deletingPathExtension().lastPathComponent
         let debugURL = fileURL.deletingLastPathComponent().appendingPathComponent("asr.\(track).debug.json")
         do {
@@ -83,7 +83,7 @@ actor Transcriber {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             try encoder.encode(tokens.map(DebugToken.init)).write(to: debugURL, options: .atomic)
         } catch {
-            logger.error("Couldn't write ASR debug dump: \(String(describing: error), privacy: .public)")
+            logger.error("Couldn't write ASR debug dump: \(error, privacy: .public)")
         }
     }
 

@@ -73,9 +73,6 @@ struct TranscriptionService {
     /// The silence between tokens, in seconds, that ends an utterance. Override with
     /// `HARK_UTTERANCE_GAP_MS` to tune segmentation on real meetings without rebuilding.
     private static var utteranceGap: Double {
-        guard let raw = ProcessInfo.processInfo.environment["HARK_UTTERANCE_GAP_MS"],
-              let milliseconds = Double(raw)
-        else { return 0.4 }
-        return milliseconds / 1000
+        ProcessInfo.processInfo.seconds(forKey: "HARK_UTTERANCE_GAP_MS") ?? 0.4
     }
 }
