@@ -40,6 +40,14 @@ Diarization runs FluidAudio's offline pyannote community-1 pipeline. Four accura
 
 System audio is captured with a private, tap-only aggregate device. Recording stays full-duration and correct-speed regardless of the output device or its sample-rate changes, including a Bluetooth headset in HFP call mode (the same headset used as both microphone and output). The tap captures the system mix independent of the output device's link rate, and every buffer is resampled to the canonical 16 kHz.
 
+## Privacy and Dependencies
+
+Hark runs fully on-device. [FluidAudio](https://github.com/FluidInference/FluidAudio) is the only third-party dependency (pinned at 0.15.4, with no transitive SwiftPM packages). It ships no analytics SDK and no telemetry endpoint, and its `SystemInfo.summary()` logs host details to the local unified log only. pyannote's Python telemetry (`PYANNOTE_METRICS_ENABLED`) does not apply: hark runs the Core ML conversion of `pyannote/speaker-diarization-community-1` through FluidAudio, never the Python `pyannote.audio` package, so there is no opt-out to set.
+
+FluidAudio's only outbound network call is the one-time model download from Hugging Face on first transcribe. After the models cache, ordinary launches load them from disk and make no network calls; FluidAudio re-downloads from the same repo only if it detects a cached model is corrupt. Re-run this audit whenever the `FluidAudio` pin is bumped: confirm it still ships no telemetry and that the model download stays the only network path.
+
+Separately, macOS's own audio frameworks attempt a lookup of the system audio-analytics daemon (`com.apple.audioanalyticsd`) during audio I/O. The App Sandbox blocks it (hark grants no such exception), so nothing is reported. This is OS-level analytics governed by System Settings (Privacy & Security, Analytics & Improvements), not part of hark's or FluidAudio's network surface.
+
 ## Test
 
 ```sh
