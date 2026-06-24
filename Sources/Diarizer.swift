@@ -25,7 +25,6 @@ actor Diarizer {
             throw TranscriptionError.diarizationFailed(String(describing: error))
         }
 
-        // Sort by time before mapping.
         let segments = result.segments.sorted { $0.startTimeSeconds < $1.startTimeSeconds }
         report(segments, for: fileURL)
 
@@ -53,7 +52,6 @@ actor Diarizer {
         }
     }
 
-    /// Builds the config from the diarization preferences (see `Preferences.Default`).
     private static func configFromPreferences() -> OfflineDiarizerConfig {
         OfflineDiarizerConfig(
             clusteringThreshold: Preferences.diarizationClusteringThreshold,

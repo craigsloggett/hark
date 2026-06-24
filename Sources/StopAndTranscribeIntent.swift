@@ -1,6 +1,5 @@
 import AppIntents
 
-/// Stops the active recording and transcribes it to disk.
 struct StopAndTranscribeIntent: AppIntent {
     static let title: LocalizedStringResource = "Stop Hark Recording & Transcribe"
     static let description = IntentDescription(

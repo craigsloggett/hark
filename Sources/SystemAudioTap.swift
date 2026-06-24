@@ -49,7 +49,6 @@ final class SystemAudioTap: @unchecked Sendable {
     private var converter: AVAudioConverter?
     private var inputFormat: AVAudioFormat?
 
-    /// Wall-clock time the first audio frame was written.
     private var firstAudioWallTime: Date?
 
     private var tapID = AudioObjectID(kAudioObjectUnknown)

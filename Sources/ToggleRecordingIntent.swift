@@ -1,6 +1,5 @@
 import AppIntents
 
-/// Starts a recording when idle, or stops the active one and transcribes it to disk.
 struct ToggleRecordingIntent: AppIntent {
     static let title: LocalizedStringResource = "Toggle Hark Recording"
     static let description = IntentDescription(
