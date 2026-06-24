@@ -63,6 +63,7 @@ struct AdvancedSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func tuningRow(
