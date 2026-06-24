@@ -26,7 +26,7 @@ actor Diarizer {
         }
 
         let segments = result.segments.sorted { $0.startTimeSeconds < $1.startTimeSeconds }
-        report(segments, for: fileURL)
+        logSummary(segments, for: fileURL)
 
         guard !segments.isEmpty else {
             logger.warning("No speech in \(fileURL.lastPathComponent, privacy: .public); remote collapses to Speaker 1")
@@ -36,7 +36,7 @@ actor Diarizer {
             DiarizationTurn(
                 start: Double($0.startTimeSeconds),
                 end: Double($0.endTimeSeconds),
-                speakerId: $0.speakerId
+                speakerID: $0.speakerId
             )
         }
     }
@@ -62,7 +62,7 @@ actor Diarizer {
     }
 
     /// Logs a one-line diarization summary.
-    private func report(_ segments: [TimedSpeakerSegment], for fileURL: URL) {
+    private func logSummary(_ segments: [TimedSpeakerSegment], for fileURL: URL) {
         let speakers = Set(segments.map(\.speakerId)).count
         let speech = segments.reduce(Float(0)) { $0 + $1.durationSeconds }
         let qualities = segments.map(\.qualityScore)

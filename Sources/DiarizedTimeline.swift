@@ -1,11 +1,13 @@
 import Foundation
 
+/// One speaker's continuous turn on the system track, labeled with the diarizer's raw speaker tag.
 struct DiarizationTurn: Equatable {
     let start: Double
     let end: Double
-    let speakerId: String
+    let speakerID: String
 }
 
+/// Numbers the diarizer's raw speaker tags by first appearance and resolves who speaks at a given time.
 struct DiarizedTimeline {
     private let turns: [DiarizationTurn]
     private let speakers: [String: Speaker]
@@ -14,8 +16,8 @@ struct DiarizedTimeline {
         let ordered = turns.sorted { $0.start < $1.start }
         var speakers: [String: Speaker] = [:]
         var nextIndex = 1
-        for turn in ordered where speakers[turn.speakerId] == nil {
-            speakers[turn.speakerId] = .remote(nextIndex)
+        for turn in ordered where speakers[turn.speakerID] == nil {
+            speakers[turn.speakerID] = .remote(nextIndex)
             nextIndex += 1
         }
         self.turns = ordered
@@ -30,7 +32,7 @@ struct DiarizedTimeline {
         // `turns` is sorted by start, so the first match is the earliest-starting turn that
         // contains the time, keeping crosstalk ties consistent with the overlap path.
         if let containing = turns.first(where: { time >= $0.start && time <= $0.end }) {
-            return speakers[containing.speakerId]
+            return speakers[containing.speakerID]
         }
         return nearestSpeaker(to: time)
     }
@@ -42,6 +44,6 @@ struct DiarizedTimeline {
             let rhsDistance = abs((rhs.start + rhs.end) / 2 - time)
             return lhsDistance < rhsDistance
         }
-        return nearest.flatMap { speakers[$0.speakerId] }
+        return nearest.flatMap { speakers[$0.speakerID] }
     }
 }

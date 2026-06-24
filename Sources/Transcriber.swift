@@ -43,7 +43,7 @@ actor Transcriber {
 
         guard let timings = result.tokenTimings else { return [] }
         let tokens = timings.map { TimedToken(start: $0.startTime, end: $0.endTime, text: $0.token) }
-        report(result, tokens: tokens, for: fileURL)
+        logSummary(result, tokens: tokens, for: fileURL)
         return tokens
     }
 
@@ -67,7 +67,7 @@ actor Transcriber {
     }
 
     /// Logs a one-line transcription summary.
-    private func report(_ result: ASRResult, tokens: [TimedToken], for fileURL: URL) {
+    private func logSummary(_ result: ASRResult, tokens: [TimedToken], for fileURL: URL) {
         let summary = String(
             format: "%d tokens, %.1fs audio, confidence %.2f, %.1fx realtime",
             tokens.count, result.duration, result.confidence, result.rtfx
