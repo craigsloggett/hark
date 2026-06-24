@@ -13,7 +13,7 @@ struct GeneralSettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Hark")
                             .font(.headline)
-                        Text("On-device transcription for your meetings")
+                        Text("Meeting transcripts that know who said what. Private, on your Mac.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
