@@ -8,7 +8,7 @@ struct ToggleRecordingIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let wasRecording = await AudioRecorder.shared.isRecording
-        await AudioRecorder.shared.toggleAndTranscribe()
+        await AudioRecorder.shared.toggleRecording()
         return .result(
             dialog: wasRecording ? "Stopped recording. Transcribing." : "Started recording."
         )

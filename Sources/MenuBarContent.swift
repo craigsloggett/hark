@@ -12,7 +12,7 @@ struct MenuBarContent: View {
         Divider()
 
         Button(recorder.isRecording ? "Stop & Transcribe" : "Start Recording") {
-            recorder.toggleAndTranscribe()
+            recorder.toggleRecording()
         }
 
         Button("Transcribe Last Session") {

@@ -29,7 +29,7 @@ final class AudioRecorder {
     private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "AudioRecorder")
 
     /// Starts recording when idle, or stops and transcribes the active recording.
-    func toggleAndTranscribe() {
+    func toggleRecording() {
         if isRecording {
             stopAndTranscribe()
         } else {
