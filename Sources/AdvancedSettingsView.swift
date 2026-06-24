@@ -19,30 +19,41 @@ struct AdvancedSettingsView: View {
 
     var body: some View {
         Form {
+            Section {
+                Text(
+                    "These settings fine-tune how Hark tells speakers apart. The defaults work "
+                        + "well for most conversations, so adjust them only if you'd like to "
+                        + "experiment. Reset to Defaults restores the original values at any time."
+                )
+                .foregroundStyle(.secondary)
+            }
+
             tuningRow(
-                "Clustering threshold",
+                "Telling voices apart",
                 value: $clusteringThreshold, range: 0.1 ... 1.0, step: 0.01,
-                help: "Higher keeps more speaker embeddings apart as separate speakers."
+                help: "Higher makes Hark more willing to treat similar-sounding voices as separate people."
             )
             tuningRow(
-                "Speaker split (FA)",
+                "Number of speakers",
                 value: $diarizationFa, range: 0.0 ... 1.0, step: 0.01,
-                help: "Higher splits embeddings into more speakers, lower merges them."
+                help: "Higher leans toward finding more speakers; lower groups voices into fewer people."
             )
             tuningRow(
-                "Segmentation step ratio",
+                "Speaker change accuracy",
                 value: $stepRatio, range: 0.0 ... 1.0, step: 0.01,
-                help: "Lower sharpens turn boundaries at roughly 2x cost."
+                help: "Lower pinpoints where the speaker changes more precisely, "
+                    + "though transcribing takes a little longer."
             )
             tuningRow(
-                "Min segment duration",
+                "Shortest spoken turn",
                 value: $minSegmentDuration, range: 0.0 ... 5.0, step: 0.1,
-                help: "Shortest embedding segment, in seconds; lower lets brief turns get their own speaker."
+                help: "The briefest moment of speech Hark credits to a speaker, in "
+                    + "seconds. Lower captures quick remarks."
             )
             tuningRow(
-                "Utterance gap",
+                "Pause before a new line",
                 value: $utteranceGap, range: 0.0 ... 2.0, step: 0.05,
-                help: "Silence between tokens, in seconds, that ends an utterance."
+                help: "How long a silence, in seconds, before Hark begins a new line in the transcript."
             )
 
             Section {

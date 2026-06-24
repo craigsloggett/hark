@@ -7,18 +7,18 @@ struct GeneralSettingsView: View {
         Form {
             Section {
                 Text(
-                    "Hark is driven by a global keyboard shortcut. macOS has no built-in API for "
-                        + "app hotkeys, so Hark exposes its actions to the Shortcuts app, where you "
-                        + "assign the keyboard shortcut (and can also run it from Spotlight or Siri)."
+                    "Hark works with a keyboard shortcut you choose. You set it up in the "
+                        + "Shortcuts app, which also lets you start Hark from Spotlight or by "
+                        + "asking Siri."
                 )
                 .foregroundStyle(.secondary)
             }
 
             Section("Set Up a Keyboard Shortcut") {
                 Text(
-                    "In the Shortcuts app, create a shortcut that runs Hark's “Toggle Hark "
-                        + "Recording” action, then give that shortcut a keyboard shortcut. Pressing "
-                        + "it starts a recording; pressing it again stops and transcribes."
+                    "Open the Shortcuts app and create a shortcut that runs Hark's “Toggle Hark "
+                        + "Recording” action, then assign it a keyboard shortcut. Press it once to "
+                        + "start recording, and again to stop and transcribe."
                 )
                 Button("Open Shortcuts…") { openShortcutsApp() }
             }
