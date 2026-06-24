@@ -6,7 +6,7 @@ import OSLog
 /// Transcribes a recording's track into timed tokens with FluidAudio's on-device Parakeet TDT
 /// v3 model. The `AsrManager` is loaded once and cached on this actor, then reused for every track.
 actor Transcriber {
-    private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "Transcriber")
+    private let logger = Logger(category: "Transcriber")
 
     private var manager: AsrManager?
 

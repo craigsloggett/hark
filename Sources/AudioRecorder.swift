@@ -26,7 +26,7 @@ final class AudioRecorder {
     private var lastSessionOffset: TimeInterval = 0
     private let systemTap = SystemAudioTap()
     private let transcriber = TranscriptionService()
-    private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "AudioRecorder")
+    private let logger = Logger(category: "AudioRecorder")
 
     /// Starts recording when idle, or stops and transcribes the active recording.
     func toggleRecording() {

@@ -4,7 +4,7 @@ import OSLog
 
 /// Diarizes the system-audio track with FluidAudio's offline pyannote community-1 pipeline.
 actor Diarizer {
-    private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "Diarizer")
+    private let logger = Logger(category: "Diarizer")
 
     private var models: OfflineDiarizerModels?
     private let config = Diarizer.configFromPreferences()
@@ -55,7 +55,7 @@ actor Diarizer {
     private static func configFromPreferences() -> OfflineDiarizerConfig {
         OfflineDiarizerConfig(
             clusteringThreshold: Preferences.diarizationClusteringThreshold,
-            Fa: Preferences.diarizationFa,
+            Fa: Preferences.diarizationSpeakerSensitivity,
             segmentationStepRatio: Preferences.diarizationStepRatio,
             minSegmentDuration: Preferences.diarizationMinSegmentDuration
         )

@@ -40,7 +40,7 @@ final class SystemAudioTap: @unchecked Sendable {
         interleaved: true
     )!
 
-    private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "SystemAudioTap")
+    private let logger = Logger(category: "SystemAudioTap")
 
     private let ioQueue = DispatchQueue(label: "com.craigsloggett.hark.system-audio-tap", qos: .userInitiated)
     private let controlQueue = DispatchQueue(label: "com.craigsloggett.hark.system-audio-tap.control")

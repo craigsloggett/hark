@@ -6,7 +6,7 @@ enum Preferences {
     /// `UserDefaults` keys, unprefixed since the app's domain already namespaces them.
     enum Key {
         static let diarizationClusteringThreshold = "diarizationClusteringThreshold"
-        static let diarizationFa = "diarizationFa"
+        static let diarizationSpeakerSensitivity = "diarizationSpeakerSensitivity"
         static let diarizationStepRatio = "diarizationStepRatio"
         static let diarizationMinSegmentDuration = "diarizationMinSegmentDuration"
         static let utteranceGap = "utteranceGap"
@@ -19,9 +19,9 @@ enum Preferences {
         /// them apart as separate speakers.
         static let diarizationClusteringThreshold = 0.75
 
-        /// VBx warm-start clustering parameter; higher splits embeddings into more speakers, lower
-        /// merges them.
-        static let diarizationFa = 0.13
+        /// FluidAudio's VBx warm-start `Fa` parameter; higher splits embeddings into more speakers,
+        /// lower merges them.
+        static let diarizationSpeakerSensitivity = 0.13
 
         /// Silence between tokens, in seconds, that ends an utterance.
         static let utteranceGap = 0.4
@@ -43,7 +43,7 @@ enum Preferences {
     static func register(into defaults: UserDefaults = .standard) {
         defaults.register(defaults: [
             Key.diarizationClusteringThreshold: Default.diarizationClusteringThreshold,
-            Key.diarizationFa: Default.diarizationFa,
+            Key.diarizationSpeakerSensitivity: Default.diarizationSpeakerSensitivity,
             Key.diarizationStepRatio: Default.diarizationStepRatio,
             Key.diarizationMinSegmentDuration: Default.diarizationMinSegmentDuration,
             Key.utteranceGap: Default.utteranceGap,
@@ -54,8 +54,8 @@ enum Preferences {
         resolved(Key.diarizationClusteringThreshold, default: Default.diarizationClusteringThreshold)
     }
 
-    static var diarizationFa: Double {
-        resolved(Key.diarizationFa, default: Default.diarizationFa)
+    static var diarizationSpeakerSensitivity: Double {
+        resolved(Key.diarizationSpeakerSensitivity, default: Default.diarizationSpeakerSensitivity)
     }
 
     static var diarizationStepRatio: Double {

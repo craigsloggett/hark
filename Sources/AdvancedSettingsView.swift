@@ -5,8 +5,8 @@ struct AdvancedSettingsView: View {
     @AppStorage(Preferences.Key.diarizationClusteringThreshold)
     private var clusteringThreshold = Preferences.Default.diarizationClusteringThreshold
 
-    @AppStorage(Preferences.Key.diarizationFa)
-    private var diarizationFa = Preferences.Default.diarizationFa
+    @AppStorage(Preferences.Key.diarizationSpeakerSensitivity)
+    private var speakerSensitivity = Preferences.Default.diarizationSpeakerSensitivity
 
     @AppStorage(Preferences.Key.diarizationStepRatio)
     private var stepRatio = Preferences.Default.diarizationStepRatio
@@ -36,7 +36,7 @@ struct AdvancedSettingsView: View {
             )
             tuningRow(
                 "Number of speakers",
-                value: $diarizationFa, range: 0.01 ... 0.5, step: 0.01,
+                value: $speakerSensitivity, range: 0.01 ... 0.5, step: 0.01,
                 help: "Nudges the speaker count: higher tends to find more speakers, "
                     + "lower merges similar voices into fewer."
             )
@@ -91,7 +91,7 @@ struct AdvancedSettingsView: View {
 
     private func resetToDefaults() {
         clusteringThreshold = Preferences.Default.diarizationClusteringThreshold
-        diarizationFa = Preferences.Default.diarizationFa
+        speakerSensitivity = Preferences.Default.diarizationSpeakerSensitivity
         stepRatio = Preferences.Default.diarizationStepRatio
         minSegmentDuration = Preferences.Default.diarizationMinSegmentDuration
         utteranceGap = Preferences.Default.utteranceGap
