@@ -31,29 +31,31 @@ struct AdvancedSettingsView: View {
             tuningRow(
                 "Telling voices apart",
                 value: $clusteringThreshold, range: 0.1 ... 1.0, step: 0.01,
-                help: "Higher makes Hark more willing to treat similar-sounding voices as separate people."
+                help: "Higher makes Hark treat similar-sounding voices as separate people, "
+                    + "so it tends to find more speakers."
             )
             tuningRow(
                 "Number of speakers",
-                value: $diarizationFa, range: 0.0 ... 1.0, step: 0.01,
-                help: "Higher leans toward finding more speakers; lower groups voices into fewer people."
+                value: $diarizationFa, range: 0.01 ... 0.5, step: 0.01,
+                help: "Fine-tunes how Hark separates voices into speakers. Adjust if it finds "
+                    + "too many or too few."
             )
             tuningRow(
                 "Speaker change accuracy",
-                value: $stepRatio, range: 0.0 ... 1.0, step: 0.01,
-                help: "Lower pinpoints where the speaker changes more precisely, "
+                value: $stepRatio, range: 0.01 ... 1.0, step: 0.01,
+                help: "Lower pinpoints where one speaker stops and another starts more precisely, "
                     + "though transcribing takes a little longer."
             )
             tuningRow(
                 "Shortest spoken turn",
-                value: $minSegmentDuration, range: 0.0 ... 5.0, step: 0.1,
-                help: "The briefest moment of speech Hark credits to a speaker, in "
-                    + "seconds. Lower captures quick remarks."
+                value: $minSegmentDuration, range: 0.0 ... 5.0, step: 0.1, unit: "s",
+                help: "The shortest moment of speech Hark assigns to a speaker. Lower captures "
+                    + "quick remarks; higher ignores them."
             )
             tuningRow(
                 "Pause before a new line",
-                value: $utteranceGap, range: 0.0 ... 2.0, step: 0.05,
-                help: "How long a silence, in seconds, before Hark begins a new line in the transcript."
+                value: $utteranceGap, range: 0.0 ... 2.0, step: 0.05, unit: "s",
+                help: "How long a silence Hark waits through before starting a new line in the transcript."
             )
 
             Section {
@@ -68,13 +70,14 @@ struct AdvancedSettingsView: View {
         value: Binding<Double>,
         range: ClosedRange<Double>,
         step: Double,
+        unit: String = "",
         help: String
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(title)
                 Spacer()
-                Text(value.wrappedValue, format: .number.precision(.fractionLength(2)))
+                Text(value.wrappedValue.formatted(.number.precision(.fractionLength(2))) + unit)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
