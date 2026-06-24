@@ -95,8 +95,8 @@ struct TimedTokenTests {
     // MARK: Punctuation
 
     @Test func trailingPunctuationAfterGapJoinsPreviousSentence() {
-        // A lone period emitted after a long pause terminates the prior sentence; the gap still
-        // separates the next utterance rather than being absorbed by the stray token.
+        // A lone period emitted after a long pause terminates the prior sentence, and the gap
+        // then separates the next utterance.
         let tokens = [
             TimedToken(start: 0, end: 1, text: " keep"),
             TimedToken(start: 1, end: 2, text: " you"),

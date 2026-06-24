@@ -24,7 +24,7 @@ final class PreferencesTests {
         #expect(defaults.double(forKey: Preferences.Key.diarizationClusteringThreshold) == 0.75)
         #expect(defaults.double(forKey: Preferences.Key.diarizationFa) == 0.13)
         #expect(defaults.double(forKey: Preferences.Key.utteranceGap) == 0.4)
-        // Library-deferred keys register FluidAudio's live constants, not mirrored literals.
+        // Library-deferred keys register FluidAudio's live constants.
         #expect(defaults.double(forKey: Preferences.Key.diarizationStepRatio)
             == OfflineDiarizerConfig.Segmentation.community.stepRatio)
         #expect(defaults.double(forKey: Preferences.Key.diarizationMinSegmentDuration)

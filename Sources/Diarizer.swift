@@ -19,7 +19,7 @@ actor Diarizer {
         do {
             result = try await manager.process(fileURL)
         } catch OfflineDiarizationError.noSpeechDetected {
-            // Treat silence as an empty timeline rather than an error.
+            // No speech detected, so there are no turns.
             return []
         } catch {
             throw TranscriptionError.diarizationFailed(String(describing: error))

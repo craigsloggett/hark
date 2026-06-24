@@ -3,8 +3,8 @@ import Testing
 
 /// Pins the FluidAudio constants hark builds on: the recorder captures at `sampleRate`, `Transcriber`
 /// pre-checks each track against the `minimumAudioDurationSeconds` floor, and `Preferences.Default`
-/// defers to the community-1 diarization defaults rather than hardcoding them. A FluidAudio version
-/// bump that changes any of these trips a test so the assumptions get revisited.
+/// defers to the community-1 diarization defaults. A FluidAudio version bump that changes any of
+/// these trips a test so the assumptions get revisited.
 struct FluidAudioContractTests {
     @Test func parakeetSampleRateIs16kHz() {
         #expect(ASRConstants.sampleRate == 16000)

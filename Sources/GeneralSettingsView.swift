@@ -33,7 +33,6 @@ struct GeneralSettingsView: View {
     }
 
     private func openShortcutsApp() {
-        // Shortcuts registers the "shortcuts" URL scheme; guard rather than force-unwrap.
         guard let url = URL(string: "shortcuts://") else { return }
         NSWorkspace.shared.open(url)
     }

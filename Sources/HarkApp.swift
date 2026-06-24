@@ -9,8 +9,8 @@ struct HarkApp: App {
     }
 
     var body: some Scene {
-        // Inject at the view level inside each closure: a Scene-level `.environment` does not
-        // propagate into a MenuBarExtra's separately-hosted label and content views.
+        // MenuBarExtra hosts its label and content in separate views, so the recorder is injected
+        // into each closure.
         MenuBarExtra {
             MenuBarContent()
                 .environment(recorder)
@@ -20,8 +20,8 @@ struct HarkApp: App {
         }
         .menuBarExtraStyle(.menu)
 
-        // A plain Window, not a Settings scene: `openSettings()` is unreliable from a menu bar
-        // app on macOS 26, while `openWindow` is not. Suppressed so it never opens at launch.
+        // A window opened by id via `openWindow`; `openSettings()` is unreliable from a menu bar
+        // app on macOS 26. Suppressed so it never opens at launch.
         Window("Hark Settings", id: SettingsWindow.id) {
             SettingsView()
         }

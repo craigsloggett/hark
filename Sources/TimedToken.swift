@@ -9,7 +9,7 @@ struct TimedToken: Equatable {
     let text: String
 
     /// Whether the token carries no letters or digits (a lone `.`, `,`, etc.). Punctuation
-    /// terminates the word it follows rather than marking a turn, so grouping never breaks on it.
+    /// terminates the word it follows, so grouping never breaks on it.
     var isPunctuation: Bool {
         !text.contains { $0.isLetter || $0.isNumber }
     }
