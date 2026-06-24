@@ -28,6 +28,8 @@ targets:
       - Sources
       - path: Resources/AppIcon.icon
         buildPhase: resources
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
     dependencies:
       - package: FluidAudio
     scheme:

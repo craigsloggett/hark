@@ -13,6 +13,10 @@ final class AudioRecorder {
         case failed(String)
     }
 
+    /// The process-wide recorder. App Intents are instantiated by the system and need a shared
+    /// reference to the same instance the menu bar UI observes.
+    static let shared = AudioRecorder()
+
     private(set) var isRecording = false
     private(set) var lastSessionURL: URL?
     private(set) var transcriptionState = TranscriptionState.idle
@@ -24,12 +28,19 @@ final class AudioRecorder {
     private let transcriber = TranscriptionService()
     private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "AudioRecorder")
 
-    func toggle() {
+    /// Starts recording when idle, or stops and transcribes the active recording.
+    func toggleAndTranscribe() {
         if isRecording {
-            stop()
+            stopAndTranscribe()
         } else {
             start()
         }
+    }
+
+    /// Stops the active recording and immediately transcribes it to disk.
+    func stopAndTranscribe() {
+        stop()
+        transcribeLastSession()
     }
 
     func start() {
