@@ -90,13 +90,14 @@ final class AudioRecorder {
             logger.error("No documents directory available")
             return
         }
-        let session = documents
-            .appendingPathComponent(Self.sessionName(for: Date()), isDirectory: true)
+        let session = Session(
+            url: documents.appendingPathComponent(Self.sessionName(for: Date()), isDirectory: true)
+        )
         do {
-            try FileManager.default.createDirectory(at: session, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: session.url, withIntermediateDirectories: true)
 
             let micRecorder = try AVAudioRecorder(
-                url: session.appendingPathComponent("mic.wav"),
+                url: session.mic,
                 settings: Self.micSettings
             )
             guard micRecorder.record() else {
@@ -105,10 +106,10 @@ final class AudioRecorder {
             }
             sessionStart = Date()
 
-            try systemTap.start(writingTo: session.appendingPathComponent("system.wav"))
+            try systemTap.start(writingTo: session.system)
 
             self.micRecorder = micRecorder
-            lastSessionURL = session
+            lastSessionURL = session.url
             transcriptionState = .idle
             isRecording = true
         } catch {
@@ -127,7 +128,7 @@ final class AudioRecorder {
 
     private static let micSettings: [String: Any] = [
         AVFormatIDKey: Int(kAudioFormatLinearPCM),
-        AVSampleRateKey: 16000.0,
+        AVSampleRateKey: CaptureFormat.sampleRate,
         AVNumberOfChannelsKey: 1,
         AVLinearPCMBitDepthKey: 16,
         AVLinearPCMIsFloatKey: false,

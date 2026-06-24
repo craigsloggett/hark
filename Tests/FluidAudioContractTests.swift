@@ -1,4 +1,5 @@
 import FluidAudio
+@testable import hark
 import Testing
 
 /// Pins the FluidAudio constants and validation bounds hark builds on: the recorder captures at
@@ -9,6 +10,10 @@ import Testing
 struct FluidAudioContractTests {
     @Test func parakeetSampleRateIs16kHz() {
         #expect(ASRConstants.sampleRate == 16000)
+    }
+
+    @Test func captureRateMatchesModelRate() {
+        #expect(CaptureFormat.sampleRate == Double(ASRConstants.sampleRate))
     }
 
     @Test func parakeetMinimumDurationFloorIsUnchanged() {

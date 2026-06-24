@@ -35,7 +35,7 @@ final class SystemAudioTap: @unchecked Sendable {
     /// arguments mean the failable initializer never returns nil.
     private static let canonicalFormat = AVAudioFormat(
         commonFormat: .pcmFormatInt16,
-        sampleRate: 16000,
+        sampleRate: CaptureFormat.sampleRate,
         channels: 1,
         interleaved: true
     )!

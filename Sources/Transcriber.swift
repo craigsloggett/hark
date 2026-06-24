@@ -85,9 +85,7 @@ actor Transcriber {
         let track = fileURL.deletingPathExtension().lastPathComponent
         let debugURL = fileURL.deletingLastPathComponent().appendingPathComponent("asr.\(track).debug.json")
         do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(tokens.map(DebugToken.init)).write(to: debugURL, options: .atomic)
+            try tokens.map(DebugToken.init).writeJSON(to: debugURL, sortedKeys: true)
         } catch {
             logger.error("Couldn't write ASR debug dump: \(error, privacy: .public)")
         }

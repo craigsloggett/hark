@@ -85,9 +85,7 @@ actor Diarizer {
         let dump = segments.map(DebugSegment.init)
         let debugURL = fileURL.deletingLastPathComponent().appendingPathComponent("diarization.debug.json")
         do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(dump).write(to: debugURL, options: .atomic)
+            try dump.writeJSON(to: debugURL, sortedKeys: true)
         } catch {
             logger.error("Couldn't write diarization debug dump: \(error, privacy: .public)")
         }
