@@ -37,8 +37,8 @@ struct AdvancedSettingsView: View {
             tuningRow(
                 "Number of speakers",
                 value: $diarizationFa, range: 0.01 ... 0.5, step: 0.01,
-                help: "Fine-tunes how Hark separates voices into speakers. Adjust if it finds "
-                    + "too many or too few."
+                help: "Nudges the speaker count: higher tends to find more speakers, "
+                    + "lower merges similar voices into fewer."
             )
             tuningRow(
                 "Speaker change accuracy",
