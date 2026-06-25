@@ -6,7 +6,7 @@ import OSLog
 /// Transcribes a recording's track into timed tokens with FluidAudio's on-device Parakeet TDT
 /// v3 model. The `AsrManager` is loaded once and cached on this actor, then reused for every track.
 actor Transcriber {
-    private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "Transcriber")
+    private let logger = Logger(category: "Transcriber")
 
     private var manager: AsrManager?
 
@@ -43,7 +43,7 @@ actor Transcriber {
 
         guard let timings = result.tokenTimings else { return [] }
         let tokens = timings.map { TimedToken(start: $0.startTime, end: $0.endTime, text: $0.token) }
-        report(result, tokens: tokens, for: fileURL)
+        logSummary(result, tokens: tokens, for: fileURL)
         return tokens
     }
 
@@ -67,7 +67,7 @@ actor Transcriber {
     }
 
     /// Logs a one-line transcription summary.
-    private func report(_ result: ASRResult, tokens: [TimedToken], for fileURL: URL) {
+    private func logSummary(_ result: ASRResult, tokens: [TimedToken], for fileURL: URL) {
         let summary = String(
             format: "%d tokens, %.1fs audio, confidence %.2f, %.1fx realtime",
             tokens.count, result.duration, result.confidence, result.rtfx
@@ -85,9 +85,7 @@ actor Transcriber {
         let track = fileURL.deletingPathExtension().lastPathComponent
         let debugURL = fileURL.deletingLastPathComponent().appendingPathComponent("asr.\(track).debug.json")
         do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(tokens.map(DebugToken.init)).write(to: debugURL, options: .atomic)
+            try tokens.map(DebugToken.init).writeJSON(to: debugURL, sortedKeys: true)
         } catch {
             logger.error("Couldn't write ASR debug dump: \(error, privacy: .public)")
         }

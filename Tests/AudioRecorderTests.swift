@@ -40,4 +40,15 @@ struct AudioRecorderTests {
         )
         #expect(capacity == 272)
     }
+
+    @Test func sharedReturnsSameInstance() {
+        #expect(AudioRecorder.shared === AudioRecorder.shared)
+    }
+
+    @Test func stopAndTranscribeOnIdleStaysIdle() {
+        let recorder = AudioRecorder()
+        recorder.stopAndTranscribe()
+        #expect(recorder.isRecording == false)
+        #expect(recorder.transcriptionState == .idle)
+    }
 }

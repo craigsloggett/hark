@@ -33,20 +33,19 @@ struct TranscriptionService {
         offset: TimeInterval = 0,
         locale: Locale = .current
     ) async throws -> Transcript {
-        let micURL = sessionURL.appendingPathComponent("mic.wav")
-        let systemURL = sessionURL.appendingPathComponent("system.wav")
+        let session = Session(url: sessionURL)
         let gap = Preferences.utteranceGap
 
-        let you = try await transcriber.tokens(in: micURL, locale: locale)
+        let you = try await transcriber.tokens(in: session.mic, locale: locale)
             .segments(resolving: { _ in .you }, gap: gap)
 
-        let systemTokens = try await transcriber.tokens(in: systemURL, locale: locale)
+        let systemTokens = try await transcriber.tokens(in: session.system, locale: locale)
         // Diarization only labels remote speech; skip it when the track is silent.
         let them: [TranscriptSegment]
         if systemTokens.isEmpty {
             them = []
         } else {
-            let turns = try await diarizer.turns(in: systemURL)
+            let turns = try await diarizer.turns(in: session.system)
             let timeline = DiarizedTimeline(turns: turns)
             // Fall back to one speaker when diarization found no turns to attribute to.
             them = systemTokens.segments(resolving: { timeline.speaker(at: $0) ?? .remote(1) }, gap: gap)
@@ -59,14 +58,9 @@ struct TranscriptionService {
     /// Writes `transcript.txt` and `transcript.json` into the session folder.
     /// - Returns: the URL of the written `transcript.txt`.
     func write(_ transcript: Transcript, to sessionURL: URL) throws -> URL {
-        let textURL = sessionURL.appendingPathComponent("transcript.txt")
-        try (transcript.plainText() + "\n").write(to: textURL, atomically: true, encoding: .utf8)
-
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
-        let jsonURL = sessionURL.appendingPathComponent("transcript.json")
-        try encoder.encode(transcript.segments).write(to: jsonURL, options: .atomic)
-
-        return textURL
+        let session = Session(url: sessionURL)
+        try (transcript.plainText() + "\n").write(to: session.transcriptText, atomically: true, encoding: .utf8)
+        try transcript.segments.writeJSON(to: session.transcriptJSON)
+        return session.transcriptText
     }
 }

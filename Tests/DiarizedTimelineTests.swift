@@ -3,8 +3,8 @@ import Testing
 
 struct DiarizedTimelineTests {
     private static let twoSpeakers = DiarizedTimeline(turns: [
-        DiarizationTurn(start: 0, end: 2, speakerId: "A"),
-        DiarizationTurn(start: 2, end: 10, speakerId: "B"),
+        DiarizationTurn(start: 0, end: 2, speakerID: "A"),
+        DiarizationTurn(start: 2, end: 10, speakerID: "B"),
     ])
 
     // MARK: Numbering
@@ -12,16 +12,16 @@ struct DiarizedTimelineTests {
     @Test func numbersSpeakersByFirstAppearance() {
         // "B" comes first in the array, but "A" speaks earlier, so "A" is Speaker 1.
         let timeline = DiarizedTimeline(turns: [
-            DiarizationTurn(start: 5, end: 6, speakerId: "B"),
-            DiarizationTurn(start: 0, end: 1, speakerId: "A"),
-            DiarizationTurn(start: 1, end: 2, speakerId: "B"),
+            DiarizationTurn(start: 5, end: 6, speakerID: "B"),
+            DiarizationTurn(start: 0, end: 1, speakerID: "A"),
+            DiarizationTurn(start: 1, end: 2, speakerID: "B"),
         ])
         #expect(timeline.speaker(at: 0.5) == .remote(1))
         #expect(timeline.speaker(at: 5.5) == .remote(2))
     }
 
     @Test func mapsSingleSpeakerToSpeakerOne() {
-        let timeline = DiarizedTimeline(turns: [DiarizationTurn(start: 0, end: 4, speakerId: "X")])
+        let timeline = DiarizedTimeline(turns: [DiarizationTurn(start: 0, end: 4, speakerID: "X")])
         #expect(timeline.speaker(at: 2) == .remote(1))
     }
 
@@ -34,8 +34,8 @@ struct DiarizedTimelineTests {
 
     @Test func snapsPointInGapToNearestTurn() {
         let timeline = DiarizedTimeline(turns: [
-            DiarizationTurn(start: 0, end: 2, speakerId: "A"),
-            DiarizationTurn(start: 8, end: 10, speakerId: "B"),
+            DiarizationTurn(start: 0, end: 2, speakerID: "A"),
+            DiarizationTurn(start: 8, end: 10, speakerID: "B"),
         ])
         // 5.5 is in the gap; nearer B's midpoint (9) than A's (1).
         #expect(timeline.speaker(at: 5.5) == .remote(2))
@@ -45,8 +45,8 @@ struct DiarizedTimelineTests {
 
     @Test func breaksMidpointTiesByEarliestTurn() {
         let timeline = DiarizedTimeline(turns: [
-            DiarizationTurn(start: 0, end: 2, speakerId: "A"),
-            DiarizationTurn(start: 8, end: 10, speakerId: "B"),
+            DiarizationTurn(start: 0, end: 2, speakerID: "A"),
+            DiarizationTurn(start: 8, end: 10, speakerID: "B"),
         ])
         // 5 is equidistant from both midpoints (1 and 9); the earlier turn wins.
         #expect(timeline.speaker(at: 5) == .remote(1))

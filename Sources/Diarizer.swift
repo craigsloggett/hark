@@ -4,7 +4,7 @@ import OSLog
 
 /// Diarizes the system-audio track with FluidAudio's offline pyannote community-1 pipeline.
 actor Diarizer {
-    private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "Diarizer")
+    private let logger = Logger(category: "Diarizer")
 
     private var models: OfflineDiarizerModels?
     private let config = Diarizer.configFromPreferences()
@@ -19,15 +19,14 @@ actor Diarizer {
         do {
             result = try await manager.process(fileURL)
         } catch OfflineDiarizationError.noSpeechDetected {
-            // Treat silence as an empty timeline rather than an error.
+            // No speech detected, so there are no turns.
             return []
         } catch {
             throw TranscriptionError.diarizationFailed(String(describing: error))
         }
 
-        // Sort by time before mapping.
         let segments = result.segments.sorted { $0.startTimeSeconds < $1.startTimeSeconds }
-        report(segments, for: fileURL)
+        logSummary(segments, for: fileURL)
 
         guard !segments.isEmpty else {
             logger.warning("No speech in \(fileURL.lastPathComponent, privacy: .public); remote collapses to Speaker 1")
@@ -37,7 +36,7 @@ actor Diarizer {
             DiarizationTurn(
                 start: Double($0.startTimeSeconds),
                 end: Double($0.endTimeSeconds),
-                speakerId: $0.speakerId
+                speakerID: $0.speakerId
             )
         }
     }
@@ -53,18 +52,17 @@ actor Diarizer {
         }
     }
 
-    /// Builds the config from the diarization preferences (see `Preferences.Default`).
     private static func configFromPreferences() -> OfflineDiarizerConfig {
         OfflineDiarizerConfig(
             clusteringThreshold: Preferences.diarizationClusteringThreshold,
-            Fa: Preferences.diarizationFa,
+            Fa: Preferences.diarizationSpeakerSensitivity,
             segmentationStepRatio: Preferences.diarizationStepRatio,
             minSegmentDuration: Preferences.diarizationMinSegmentDuration
         )
     }
 
     /// Logs a one-line diarization summary.
-    private func report(_ segments: [TimedSpeakerSegment], for fileURL: URL) {
+    private func logSummary(_ segments: [TimedSpeakerSegment], for fileURL: URL) {
         let speakers = Set(segments.map(\.speakerId)).count
         let speech = segments.reduce(Float(0)) { $0 + $1.durationSeconds }
         let qualities = segments.map(\.qualityScore)
@@ -87,9 +85,7 @@ actor Diarizer {
         let dump = segments.map(DebugSegment.init)
         let debugURL = fileURL.deletingLastPathComponent().appendingPathComponent("diarization.debug.json")
         do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(dump).write(to: debugURL, options: .atomic)
+            try dump.writeJSON(to: debugURL, sortedKeys: true)
         } catch {
             logger.error("Couldn't write diarization debug dump: \(error, privacy: .public)")
         }

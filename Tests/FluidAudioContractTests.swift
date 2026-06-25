@@ -1,13 +1,19 @@
 import FluidAudio
+@testable import hark
 import Testing
 
-/// Pins the FluidAudio constants hark builds on: the recorder captures at `sampleRate`, `Transcriber`
-/// pre-checks each track against the `minimumAudioDurationSeconds` floor, and `Preferences.Default`
-/// defers to the community-1 diarization defaults rather than hardcoding them. A FluidAudio version
-/// bump that changes any of these trips a test so the assumptions get revisited.
+/// Pins the FluidAudio constants and validation bounds hark builds on: the recorder captures at
+/// `sampleRate`, `Transcriber` pre-checks each track against the `minimumAudioDurationSeconds`
+/// floor, `Preferences.Default` defers to the community-1 diarization defaults, and the Advanced
+/// settings sliders stay within `OfflineDiarizerConfig.validate()`. A FluidAudio version bump that
+/// changes any of these trips a test so the assumptions get revisited.
 struct FluidAudioContractTests {
     @Test func parakeetSampleRateIs16kHz() {
         #expect(ASRConstants.sampleRate == 16000)
+    }
+
+    @Test func captureRateMatchesModelRate() {
+        #expect(CaptureFormat.sampleRate == Double(ASRConstants.sampleRate))
     }
 
     @Test func parakeetMinimumDurationFloorIsUnchanged() {
@@ -21,5 +27,28 @@ struct FluidAudioContractTests {
 
     @Test func diarizationMinSegmentDefaultIsUnchanged() {
         #expect(OfflineDiarizerConfig.Embedding.community.minSegmentDurationSeconds == 1.0)
+    }
+
+    // MARK: Slider range bounds
+
+    /// `OfflineDiarizerManager.process` validates on every run, so every reachable Advanced-slider
+    /// position must produce a config that passes. Catches an SDK bound tightening under our ranges.
+    @Test func advancedSliderExtremesPassValidation() throws {
+        try OfflineDiarizerConfig(
+            clusteringThreshold: 1.0, Fa: 0.01, segmentationStepRatio: 0.01, minSegmentDuration: 0.0
+        ).validate()
+        try OfflineDiarizerConfig(
+            clusteringThreshold: 0.1, Fa: 0.5, segmentationStepRatio: 1.0, minSegmentDuration: 5.0
+        ).validate()
+    }
+
+    /// The Fa and stepRatio sliders floor at 0.01, not 0, because validate() rejects non-positive values.
+    @Test func nonPositiveFaAndStepRatioAreRejected() {
+        #expect(throws: OfflineDiarizationError.self) {
+            try OfflineDiarizerConfig(Fa: 0.0).validate()
+        }
+        #expect(throws: OfflineDiarizationError.self) {
+            try OfflineDiarizerConfig(segmentationStepRatio: 0.0).validate()
+        }
     }
 }

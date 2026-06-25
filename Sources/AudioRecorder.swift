@@ -13,6 +13,10 @@ final class AudioRecorder {
         case failed(String)
     }
 
+    /// The process-wide recorder. App Intents are instantiated by the system and need a shared
+    /// reference to the same instance the menu bar UI observes.
+    static let shared = AudioRecorder()
+
     private(set) var isRecording = false
     private(set) var lastSessionURL: URL?
     private(set) var transcriptionState = TranscriptionState.idle
@@ -22,14 +26,21 @@ final class AudioRecorder {
     private var lastSessionOffset: TimeInterval = 0
     private let systemTap = SystemAudioTap()
     private let transcriber = TranscriptionService()
-    private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "AudioRecorder")
+    private let logger = Logger(category: "AudioRecorder")
 
-    func toggle() {
+    /// Starts recording when idle, or stops and transcribes the active recording.
+    func toggleRecording() {
         if isRecording {
-            stop()
+            stopAndTranscribe()
         } else {
             start()
         }
+    }
+
+    /// Stops the active recording and immediately transcribes it to disk.
+    func stopAndTranscribe() {
+        stop()
+        transcribeLastSession()
     }
 
     func start() {
@@ -79,13 +90,14 @@ final class AudioRecorder {
             logger.error("No documents directory available")
             return
         }
-        let session = documents
-            .appendingPathComponent(Self.sessionName(for: Date()), isDirectory: true)
+        let session = Session(
+            url: documents.appendingPathComponent(Self.sessionName(for: Date()), isDirectory: true)
+        )
         do {
-            try FileManager.default.createDirectory(at: session, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: session.url, withIntermediateDirectories: true)
 
             let micRecorder = try AVAudioRecorder(
-                url: session.appendingPathComponent("mic.wav"),
+                url: session.mic,
                 settings: Self.micSettings
             )
             guard micRecorder.record() else {
@@ -94,10 +106,10 @@ final class AudioRecorder {
             }
             sessionStart = Date()
 
-            try systemTap.start(writingTo: session.appendingPathComponent("system.wav"))
+            try systemTap.start(writingTo: session.system)
 
             self.micRecorder = micRecorder
-            lastSessionURL = session
+            lastSessionURL = session.url
             transcriptionState = .idle
             isRecording = true
         } catch {
@@ -116,7 +128,7 @@ final class AudioRecorder {
 
     private static let micSettings: [String: Any] = [
         AVFormatIDKey: Int(kAudioFormatLinearPCM),
-        AVSampleRateKey: 16000.0,
+        AVSampleRateKey: CaptureFormat.sampleRate,
         AVNumberOfChannelsKey: 1,
         AVLinearPCMBitDepthKey: 16,
         AVLinearPCMIsFloatKey: false,

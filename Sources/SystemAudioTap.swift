@@ -35,12 +35,12 @@ final class SystemAudioTap: @unchecked Sendable {
     /// arguments mean the failable initializer never returns nil.
     private static let canonicalFormat = AVAudioFormat(
         commonFormat: .pcmFormatInt16,
-        sampleRate: 16000,
+        sampleRate: CaptureFormat.sampleRate,
         channels: 1,
         interleaved: true
     )!
 
-    private let logger = Logger(subsystem: "com.craigsloggett.hark", category: "SystemAudioTap")
+    private let logger = Logger(category: "SystemAudioTap")
 
     private let ioQueue = DispatchQueue(label: "com.craigsloggett.hark.system-audio-tap", qos: .userInitiated)
     private let controlQueue = DispatchQueue(label: "com.craigsloggett.hark.system-audio-tap.control")
@@ -49,7 +49,6 @@ final class SystemAudioTap: @unchecked Sendable {
     private var converter: AVAudioConverter?
     private var inputFormat: AVAudioFormat?
 
-    /// Wall-clock time the first audio frame was written.
     private var firstAudioWallTime: Date?
 
     private var tapID = AudioObjectID(kAudioObjectUnknown)
