@@ -4,9 +4,10 @@ import Testing
 
 /// Pins the FluidAudio constants and validation bounds hark builds on: the recorder captures at
 /// `sampleRate`, `Transcriber` pre-checks each track against the `minimumAudioDurationSeconds`
-/// floor, `Preferences.Default` defers to the community-1 diarization defaults, and the Advanced
-/// settings sliders stay within `OfflineDiarizerConfig.validate()`. A FluidAudio version bump that
-/// changes any of these trips a test so the assumptions get revisited.
+/// floor, `Preferences.Default` tracks the community-1 diarization constants (deferring to some,
+/// deliberately overriding others), and the Advanced settings sliders stay within
+/// `OfflineDiarizerConfig.validate()`. A FluidAudio version bump that changes any of these trips a
+/// test so the assumptions get revisited.
 struct FluidAudioContractTests {
     @Test func parakeetSampleRateIs16kHz() {
         #expect(ASRConstants.sampleRate == 16000)
@@ -25,6 +26,8 @@ struct FluidAudioContractTests {
         #expect(OfflineDiarizerConfig.Segmentation.community.stepRatio == 0.2)
     }
 
+    /// hark overrides this (`Preferences.Default.diarizationMinSegmentDuration` is 2.0) because the
+    /// library's 1.0 over-segments compressed audio; pin the library value so a bump gets noticed.
     @Test func diarizationMinSegmentDefaultIsUnchanged() {
         #expect(OfflineDiarizerConfig.Embedding.community.minSegmentDurationSeconds == 1.0)
     }

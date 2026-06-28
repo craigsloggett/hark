@@ -39,11 +39,12 @@ enum Preferences {
             OfflineDiarizerConfig.Segmentation.community.stepRatio
         }
 
-        /// Community-1's minimum embedding-segment length, in seconds; lower lets brief turns get
-        /// their own speaker embedding.
-        static var diarizationMinSegmentDuration: Double {
-            OfflineDiarizerConfig.Embedding.community.minSegmentDurationSeconds
-        }
+        /// Minimum segment length, in seconds, that survives diarization. Raised above FluidAudio's
+        /// community-1 default of 1.0: compressed remote-meeting audio over-segments there, splitting
+        /// one voice into brief spurious turns. At 2.0 that collapsed to the true speaker count across
+        /// test recordings without merging distinct speakers; the cost is that a sub-2s interjection
+        /// is tagged as the neighbouring speaker. The library value is pinned by a contract test.
+        static let diarizationMinSegmentDuration = 2.0
 
         /// Minimum speech, in seconds, for an unmatched session speaker to be enrolled as a new
         /// cross-session voiceprint; shorter ones stay positional (matching against existing

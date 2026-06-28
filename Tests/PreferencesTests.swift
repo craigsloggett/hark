@@ -23,14 +23,13 @@ final class PreferencesTests {
         Preferences.register(into: defaults)
         #expect(defaults.double(forKey: Preferences.Key.diarizationClusteringThreshold) == 0.75)
         #expect(defaults.double(forKey: Preferences.Key.diarizationSpeakerSensitivity) == 0.13)
+        #expect(defaults.double(forKey: Preferences.Key.diarizationMinSegmentDuration) == 2.0)
         #expect(defaults.double(forKey: Preferences.Key.speakerMatchThreshold) == 0.65)
         #expect(defaults.double(forKey: Preferences.Key.speakerMinEnrollmentDuration) == 1.0)
         #expect(defaults.double(forKey: Preferences.Key.utteranceGap) == 0.4)
-        // Library-deferred keys register FluidAudio's live constants.
+        // The one remaining library-deferred key registers FluidAudio's live constant.
         #expect(defaults.double(forKey: Preferences.Key.diarizationStepRatio)
             == OfflineDiarizerConfig.Segmentation.community.stepRatio)
-        #expect(defaults.double(forKey: Preferences.Key.diarizationMinSegmentDuration)
-            == OfflineDiarizerConfig.Embedding.community.minSegmentDurationSeconds)
     }
 
     @Test func resolvedFallsBackToDefaultWhenUnset() {
