@@ -17,9 +17,8 @@ enum TranscriptionError: LocalizedError {
     }
 }
 
-/// A transcribed session: the transcript plus the cross-session identity of each remote speaker,
-/// keyed by its on-disk token (e.g. `speaker1`). The transcript itself stays positional and
-/// portable; identities live in the separate `speakers.json` overlay.
+/// A transcribed session plus each remote speaker's cross-session identity, keyed by on-disk token.
+/// The transcript stays positional and portable; identities live in the `speakers.json` overlay.
 struct Transcription {
     let transcript: Transcript
     let speakers: [String: SpeakerIdentity]
@@ -31,9 +30,8 @@ struct TranscriptionService {
     private let diarizer = Diarizer()
     private let speakerStore = SpeakerStore()
 
-    /// Transcribes `mic.wav` as "You", diarizes and transcribes `system.wav` into the remote
-    /// speakers, resolves each remote speaker's cross-session identity, and merges everything by
-    /// start time.
+    /// Transcribes `mic.wav` as "You" and `system.wav` as the diarized remote speakers, resolves
+    /// their cross-session identities, and merges both onto one timeline.
     /// - Parameters:
     ///   - offset: seconds the system track started behind the mic, added to its segments so
     ///     both tracks share the mic's timeline before merging.
@@ -68,9 +66,8 @@ struct TranscriptionService {
         return Transcription(transcript: transcript, speakers: speakers)
     }
 
-    /// Writes `transcript.txt`, `transcript.json`, and (when there are remote speakers)
-    /// `speakers.json` into the session folder.
-    /// - Returns: the URL of the written `transcript.txt`.
+    /// Writes `transcript.txt`, `transcript.json`, and `speakers.json` (when there are remote speakers).
+    /// - Returns: the URL of `transcript.txt`.
     func write(_ transcription: Transcription, to sessionURL: URL) throws -> URL {
         let session = Session(url: sessionURL)
         let transcript = transcription.transcript
@@ -82,8 +79,8 @@ struct TranscriptionService {
         return session.transcriptText
     }
 
-    /// Matches each diarized speaker's centroid against the persisted voiceprints, returning the
-    /// identities keyed by the on-disk token so they line up with `transcript.json`.
+    /// Resolves each diarized speaker's centroid to an identity, keyed by on-disk token to align
+    /// with `transcript.json`.
     private func resolveIdentities(
         _ diarization: Diarization,
         timeline: DiarizedTimeline

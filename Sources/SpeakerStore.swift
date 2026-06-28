@@ -2,17 +2,15 @@ import FluidAudio
 import Foundation
 import OSLog
 
-/// One diarized speaker from a single session: the raw cluster id, its mean voiceprint, and how
-/// long it spoke. The unit of cross-session matching.
+/// One session's diarized speaker: the diarizer's cluster id, its mean-embedding voiceprint, and speech duration.
 struct SpeakerCluster {
     let id: String
     let centroid: [Float]
     let duration: Float
 }
 
-/// A persisted speaker voiceprint: a stable id, its mean embedding, and an optional name set once
-/// the speaker is labelled. Hark's own minimal store, decoupled from FluidAudio's internal `Speaker`
-/// struct so the on-disk format stays stable across library bumps.
+/// A persisted voiceprint. Hark's own type, not FluidAudio's `Speaker`, so the on-disk format stays
+/// stable across library bumps.
 struct Voiceprint: Codable, Equatable {
     let id: String
     let name: String?
@@ -20,30 +18,29 @@ struct Voiceprint: Codable, Equatable {
     let duration: Float
 }
 
-/// The stable identity a session speaker resolved to. `name` is `nil` until the voiceprint is named.
+/// A session speaker's resolved identity; `name` is `nil` until the voiceprint is named.
 struct SpeakerIdentity: Codable, Equatable {
     let id: String
     let name: String?
 }
 
 /// Matches each session's diarized speakers against a persisted voiceprint database so a recurring
-/// voice keeps a stable identity across sessions. Matching is read-only against the pre-session
-/// snapshot, so two voices in one meeting can't collapse together and a bad session can't corrupt a
-/// stored voiceprint. Unmatched speakers enroll as new, unnamed voiceprints only past a duration
-/// floor, keeping brief diarization fragments out of the database.
+/// voice keeps a stable identity across sessions. Matching is read-only against a pre-session
+/// snapshot, so two voices in one meeting can't collapse together; unmatched speakers enroll only
+/// past a duration floor, keeping brief diarization fragments out of the database.
 actor SpeakerStore {
     private let directory: URL?
     private let logger = Logger(category: "SpeakerStore")
 
-    /// - Parameter directory: the folder holding `voiceprints.json`; defaults to the sandbox
-    ///   container's `Application Support/Hark`. Tests inject a temporary directory.
+    /// - Parameter directory: where `voiceprints.json` lives; defaults to the sandbox container's
+    ///   `Application Support/Hark`.
     init(directory: URL? = nil) {
         self.directory = directory
     }
 
-    /// Resolves each cluster to a stable identity and persists any newly enrolled voiceprints.
-    /// - Returns: cluster id to resolved identity. Empty when the database can't be read, so a
-    ///   corrupt file degrades to positional speakers rather than being overwritten.
+    /// Resolves each cluster to a stable identity, enrolling and persisting new voiceprints.
+    /// - Returns: cluster id to identity; empty when the database can't be read, so a corrupt file
+    ///   degrades to positional speakers instead of being overwritten.
     func resolve(_ clusters: [SpeakerCluster]) -> [String: SpeakerIdentity] {
         let known: [Voiceprint]
         do {
@@ -72,7 +69,6 @@ actor SpeakerStore {
     }
 
     /// Matches each cluster against the frozen snapshot and decides enrollments, without persisting.
-    /// - Returns: the per-cluster identities and the voiceprints to enroll.
     private func assign(
         _ clusters: [SpeakerCluster],
         against snapshot: SpeakerManager,
@@ -89,8 +85,7 @@ actor SpeakerStore {
         var enrolled: [Voiceprint] = []
         var resolved: [String: SpeakerIdentity] = [:]
 
-        // The longest-speaking cluster claims a contested identity first; later claimants to an
-        // already-claimed id enroll fresh.
+        // Longest-speaking cluster claims a contested identity first; later claimants enroll fresh.
         for cluster in clusters.sorted(by: { $0.duration > $1.duration }) {
             guard cluster.centroid.count == SpeakerManager.embeddingSize else {
                 let line = "Cluster \(cluster.id): \(cluster.centroid.count)-d embedding, skipping"
@@ -122,9 +117,8 @@ actor SpeakerStore {
         return (resolved, enrolled)
     }
 
-    /// A `SpeakerManager` seeded with the known voiceprints, used read-only for distance matching.
-    /// `upsertSpeaker` builds each entry internally, so we never name FluidAudio's `Speaker` type
-    /// (its module exposes a same-named type that shadows the module qualifier).
+    /// A `SpeakerManager` seeded with the known voiceprints for read-only matching. Built via
+    /// `upsertSpeaker` to avoid naming FluidAudio's `Speaker`, which a same-named module type shadows.
     private func matcher(seededWith known: [Voiceprint], threshold: Float) -> SpeakerManager {
         var manager = SpeakerManager(speakerThreshold: threshold)
         for voiceprint in known where voiceprint.embedding.count == SpeakerManager.embeddingSize {

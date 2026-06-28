@@ -3,9 +3,8 @@ import Foundation
 @testable import hark
 import Testing
 
-/// Exercises `SpeakerStore`'s cross-session matching with synthetic 256-d embeddings, so no model
-/// download is needed (matching is pure vector math). Each test runs against its own temporary
-/// voiceprint directory, cleaned up afterwards.
+/// Exercises `SpeakerStore`'s matching with synthetic 256-d embeddings, so no model download is
+/// needed (matching is pure vector math). Each test gets its own temporary voiceprint directory.
 final class SpeakerStoreTests {
     private let directory: URL
 

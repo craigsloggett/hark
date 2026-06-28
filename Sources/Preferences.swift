@@ -28,9 +28,8 @@ enum Preferences {
         /// Silence between tokens, in seconds, that ends an utterance.
         static let utteranceGap = 0.4
 
-        /// Maximum cosine distance for matching a session speaker to an enrolled voiceprint; lower
-        /// matches more strictly. A different metric from `diarizationClusteringThreshold`, so the
-        /// value doesn't carry over between them.
+        /// Maximum cosine distance to match a session speaker to an enrolled voiceprint; lower is
+        /// stricter. A different metric from `diarizationClusteringThreshold`, so the value doesn't carry over.
         static let speakerMatchThreshold = 0.65
 
         /// Community-1's segmentation step ratio; lower sharpens turn boundaries at roughly 2x cost.
@@ -39,13 +38,11 @@ enum Preferences {
         }
 
         /// Minimum segment length, in seconds, that survives diarization. Above community-1's 1.0
-        /// default because compressed remote audio over-segments there, splitting one voice into brief
-        /// turns; the cost is that a sub-2s interjection is tagged as the neighbouring speaker.
+        /// default: compressed remote audio over-segments there; the cost is sub-2s turns merge into a neighbour.
         static let diarizationMinSegmentDuration = 2.0
 
-        /// Minimum speech, in seconds, to enroll an unmatched speaker as a new voiceprint (FluidAudio's
-        /// own per-speaker floor); shorter ones stay positional but still match existing voiceprints.
-        /// Higher resists enrolling brief diarization fragments.
+        /// Minimum speech, in seconds, to enroll an unmatched speaker as a new voiceprint; shorter
+        /// ones stay positional but still match existing voiceprints. Higher resists brief fragments.
         static var speakerMinEnrollmentDuration: Double {
             Double(SpeakerManager().minSpeechDuration)
         }

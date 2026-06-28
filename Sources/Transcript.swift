@@ -11,8 +11,7 @@ enum Speaker: Equatable {
         }
     }
 
-    /// The stable on-disk key (`you`, `speaker1`, `speaker2`, etc.). The single source of truth for
-    /// both `transcript.json`'s encoding and `speakers.json`'s identity map.
+    /// The on-disk key shared by `transcript.json`'s encoding and the `speakers.json` overlay.
     var token: String {
         switch self {
         case .you: "you"

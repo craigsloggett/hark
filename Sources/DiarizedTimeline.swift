@@ -24,8 +24,7 @@ struct DiarizedTimeline {
         self.speakers = speakers
     }
 
-    /// The positional speaker for each diarizer cluster id, for joining per-cluster data (such as
-    /// voiceprint centroids) to the numbered speakers.
+    /// Each diarizer cluster id mapped to its positional speaker, for joining per-cluster data like centroids.
     var speakersByClusterID: [String: Speaker] {
         speakers
     }

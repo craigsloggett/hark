@@ -2,8 +2,8 @@ import FluidAudio
 import Foundation
 import OSLog
 
-/// A diarized system track: the speaker turns plus each speaker's mean voiceprint, keyed by the
-/// diarizer's raw cluster id. The centroids feed cross-session speaker matching.
+/// A diarized track: speaker turns, plus each speaker's mean-embedding voiceprint keyed by the
+/// diarizer's raw cluster id.
 struct Diarization {
     let turns: [DiarizationTurn]
     let centroids: [String: [Float]]
@@ -18,9 +18,8 @@ actor Diarizer {
     private var models: OfflineDiarizerModels?
     private let config = Diarizer.configFromPreferences()
 
-    /// Diarizes a 16 kHz mono recording into speaker turns sorted by start time, with each speaker's
-    /// centroid embedding.
-    /// - Returns: the turns and centroids, or empty when the track is silent.
+    /// Diarizes a 16 kHz mono recording into start-sorted speaker turns and per-speaker centroids.
+    /// - Returns: empty when the track is silent.
     func diarize(_ fileURL: URL) async throws -> Diarization {
         let manager = OfflineDiarizerManager(config: config)
         try await manager.initialize(models: loadedModels())
