@@ -28,10 +28,9 @@ enum Preferences {
         /// Silence between tokens, in seconds, that ends an utterance.
         static let utteranceGap = 0.4
 
-        /// Maximum cosine distance for matching a session speaker to an enrolled voiceprint;
-        /// FluidAudio's `SpeakerManager` default, mirrored here (it's an init default, not an
-        /// exposed constant) and pinned by a contract test. Lower matches more strictly. This is a
-        /// cosine-distance scale, unrelated to the euclidean `diarizationClusteringThreshold`.
+        /// Maximum cosine distance for matching a session speaker to an enrolled voiceprint; lower
+        /// matches more strictly. A different metric from `diarizationClusteringThreshold`, so the
+        /// value doesn't carry over between them.
         static let speakerMatchThreshold = 0.65
 
         /// Community-1's segmentation step ratio; lower sharpens turn boundaries at roughly 2x cost.
@@ -39,17 +38,14 @@ enum Preferences {
             OfflineDiarizerConfig.Segmentation.community.stepRatio
         }
 
-        /// Minimum segment length, in seconds, that survives diarization. Raised above FluidAudio's
-        /// community-1 default of 1.0: compressed remote-meeting audio over-segments there, splitting
-        /// one voice into brief spurious turns. At 2.0 that collapsed to the true speaker count across
-        /// test recordings without merging distinct speakers; the cost is that a sub-2s interjection
-        /// is tagged as the neighbouring speaker. The library value is pinned by a contract test.
+        /// Minimum segment length, in seconds, that survives diarization. Above community-1's 1.0
+        /// default because compressed remote audio over-segments there, splitting one voice into brief
+        /// turns; the cost is that a sub-2s interjection is tagged as the neighbouring speaker.
         static let diarizationMinSegmentDuration = 2.0
 
-        /// Minimum speech, in seconds, for an unmatched session speaker to be enrolled as a new
-        /// cross-session voiceprint; shorter ones stay positional (matching against existing
-        /// voiceprints still applies below it). Defers to FluidAudio's `minSpeechDuration`, its own
-        /// floor for creating a speaker. Raise it to resist enrolling brief diarization fragments.
+        /// Minimum speech, in seconds, to enroll an unmatched speaker as a new voiceprint (FluidAudio's
+        /// own per-speaker floor); shorter ones stay positional but still match existing voiceprints.
+        /// Higher resists enrolling brief diarization fragments.
         static var speakerMinEnrollmentDuration: Double {
             Double(SpeakerManager().minSpeechDuration)
         }

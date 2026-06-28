@@ -28,10 +28,9 @@ struct SpeakerIdentity: Codable, Equatable {
 
 /// Matches each session's diarized speakers against a persisted voiceprint database so a recurring
 /// voice keeps a stable identity across sessions. Matching is read-only against the pre-session
-/// snapshot, so two distinct voices in one meeting can't collapse into one another and one bad
-/// session can't corrupt a stored voiceprint. An unmatched speaker is enrolled as a new, unnamed
-/// voiceprint only when it spoke long enough to trust, so brief diarization fragments stay
-/// positional instead of polluting the database.
+/// snapshot, so two voices in one meeting can't collapse together and a bad session can't corrupt a
+/// stored voiceprint. Unmatched speakers enroll as new, unnamed voiceprints only past a duration
+/// floor, keeping brief diarization fragments out of the database.
 actor SpeakerStore {
     private let directory: URL?
     private let logger = Logger(category: "SpeakerStore")
