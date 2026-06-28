@@ -10,6 +10,7 @@ enum Preferences {
         static let diarizationStepRatio = "diarizationStepRatio"
         static let diarizationMinSegmentDuration = "diarizationMinSegmentDuration"
         static let speakerMatchThreshold = "speakerMatchThreshold"
+        static let speakerMinEnrollmentDuration = "speakerMinEnrollmentDuration"
         static let utteranceGap = "utteranceGap"
     }
 
@@ -43,6 +44,14 @@ enum Preferences {
         static var diarizationMinSegmentDuration: Double {
             OfflineDiarizerConfig.Embedding.community.minSegmentDurationSeconds
         }
+
+        /// Minimum speech, in seconds, for an unmatched session speaker to be enrolled as a new
+        /// cross-session voiceprint; shorter ones stay positional (matching against existing
+        /// voiceprints still applies below it). Defers to FluidAudio's `minSpeechDuration`, its own
+        /// floor for creating a speaker. Raise it to resist enrolling brief diarization fragments.
+        static var speakerMinEnrollmentDuration: Double {
+            Double(SpeakerManager().minSpeechDuration)
+        }
     }
 
     /// Seeds the registration domain so `defaults read` shows the effective defaults; reads fall
@@ -54,6 +63,7 @@ enum Preferences {
             Key.diarizationStepRatio: Default.diarizationStepRatio,
             Key.diarizationMinSegmentDuration: Default.diarizationMinSegmentDuration,
             Key.speakerMatchThreshold: Default.speakerMatchThreshold,
+            Key.speakerMinEnrollmentDuration: Default.speakerMinEnrollmentDuration,
             Key.utteranceGap: Default.utteranceGap,
         ])
     }
@@ -76,6 +86,10 @@ enum Preferences {
 
     static var speakerMatchThreshold: Double {
         resolved(Key.speakerMatchThreshold, default: Default.speakerMatchThreshold)
+    }
+
+    static var speakerMinEnrollmentDuration: Double {
+        resolved(Key.speakerMinEnrollmentDuration, default: Default.speakerMinEnrollmentDuration)
     }
 
     static var utteranceGap: Double {

@@ -29,7 +29,9 @@ struct SpeakerIdentity: Codable, Equatable {
 /// Matches each session's diarized speakers against a persisted voiceprint database so a recurring
 /// voice keeps a stable identity across sessions. Matching is read-only against the pre-session
 /// snapshot, so two distinct voices in one meeting can't collapse into one another and one bad
-/// session can't corrupt a stored voiceprint; unmatched speakers are enrolled as new, unnamed ones.
+/// session can't corrupt a stored voiceprint. An unmatched speaker is enrolled as a new, unnamed
+/// voiceprint only when it spoke long enough to trust, so brief diarization fragments stay
+/// positional instead of polluting the database.
 actor SpeakerStore {
     private let directory: URL?
     private let logger = Logger(category: "SpeakerStore")
@@ -53,7 +55,32 @@ actor SpeakerStore {
         }
 
         let threshold = Float(Preferences.speakerMatchThreshold)
+        let enrollFloor = Float(Preferences.speakerMinEnrollmentDuration)
         let snapshot = matcher(seededWith: known, threshold: threshold)
+
+        let (resolved, enrolled) = assign(
+            clusters, against: snapshot, known: known, threshold: threshold, enrollFloor: enrollFloor
+        )
+
+        if !enrolled.isEmpty {
+            do {
+                try save(known + enrolled)
+            } catch {
+                logger.error("Couldn't persist voiceprints: \(error, privacy: .public)")
+            }
+        }
+        return resolved
+    }
+
+    /// Matches each cluster against the frozen snapshot and decides enrollments, without persisting.
+    /// - Returns: the per-cluster identities and the voiceprints to enroll.
+    private func assign(
+        _ clusters: [SpeakerCluster],
+        against snapshot: SpeakerManager,
+        known: [Voiceprint],
+        threshold: Float,
+        enrollFloor: Float
+    ) -> (resolved: [String: SpeakerIdentity], enrolled: [Voiceprint]) {
         var byID: [String: Voiceprint] = [:]
         for voiceprint in known {
             byID[voiceprint.id] = voiceprint
@@ -78,7 +105,7 @@ actor SpeakerStore {
                 let distance = String(format: "%.3f", match.distance)
                 let line = "Cluster \(cluster.id) matched \(match.id) at \(distance)"
                 logger.log("\(line, privacy: .public)")
-            } else {
+            } else if cluster.duration >= enrollFloor {
                 let fresh = Voiceprint(
                     id: UUID().uuidString, name: nil, embedding: cluster.centroid, duration: cluster.duration
                 )
@@ -87,17 +114,13 @@ actor SpeakerStore {
                 resolved[cluster.id] = SpeakerIdentity(id: fresh.id, name: nil)
                 let line = "Cluster \(cluster.id) enrolled \(fresh.id)"
                 logger.log("\(line, privacy: .public)")
+            } else {
+                let secs = String(format: "%.1f", cluster.duration)
+                let line = "Cluster \(cluster.id) unmatched, \(secs)s under enroll floor; left positional"
+                logger.log("\(line, privacy: .public)")
             }
         }
-
-        if !enrolled.isEmpty {
-            do {
-                try save(known + enrolled)
-            } catch {
-                logger.error("Couldn't persist voiceprints: \(error, privacy: .public)")
-            }
-        }
-        return resolved
+        return (resolved, enrolled)
     }
 
     /// A `SpeakerManager` seeded with the known voiceprints, used read-only for distance matching.

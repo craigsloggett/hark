@@ -68,6 +68,25 @@ final class SpeakerStoreTests {
         #expect(resolved["short"]?.id != idA)
     }
 
+    @Test func shortUnmatchedSpeakerStaysPositional() async {
+        let store = SpeakerStore(directory: directory)
+        // Below the 1.0s enroll floor and matching nothing: no identity, no enrollment.
+        let resolved = await store.resolve([SpeakerCluster(id: "S1", centroid: embedding([1]), duration: 0.5)])
+        #expect(resolved["S1"] == nil)
+        #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent("voiceprints.json").path))
+    }
+
+    @Test func shortSpeakerStillMatchesExisting() async throws {
+        let first = SpeakerStore(directory: directory)
+        let enrolled = await first.resolve([SpeakerCluster(id: "S1", centroid: embedding([1]), duration: 12)])
+        let id = try #require(enrolled["S1"]?.id)
+
+        // A brief utterance from a known voice still resolves, even under the enroll floor.
+        let second = SpeakerStore(directory: directory)
+        let matched = await second.resolve([SpeakerCluster(id: "S1", centroid: embedding([1, 0.02]), duration: 0.4)])
+        #expect(matched["S1"]?.id == id)
+    }
+
     @Test func persistsEnrolledVoiceprints() async throws {
         let store = SpeakerStore(directory: directory)
         _ = await store.resolve([SpeakerCluster(id: "S1", centroid: embedding([1]), duration: 10)])

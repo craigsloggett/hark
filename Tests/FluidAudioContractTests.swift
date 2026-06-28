@@ -40,6 +40,12 @@ struct FluidAudioContractTests {
         #expect(SpeakerManager().speakerThreshold == Float(Preferences.Default.speakerMatchThreshold))
     }
 
+    /// The enrollment floor defers to FluidAudio's per-speaker minimum, also an init default.
+    @Test func speakerMinSpeechDurationDefaultIsUnchanged() {
+        #expect(SpeakerManager().minSpeechDuration == 1.0)
+        #expect(SpeakerManager().minSpeechDuration == Float(Preferences.Default.speakerMinEnrollmentDuration))
+    }
+
     // MARK: Slider range bounds
 
     /// `OfflineDiarizerManager.process` validates on every run, so every reachable Advanced-slider
