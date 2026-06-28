@@ -10,6 +10,15 @@ enum Speaker: Equatable {
         case let .remote(index): "Speaker \(index)"
         }
     }
+
+    /// The stable on-disk key (`you`, `speaker1`, `speaker2`, etc.). The single source of truth for
+    /// both `transcript.json`'s encoding and `speakers.json`'s identity map.
+    var token: String {
+        switch self {
+        case .you: "you"
+        case let .remote(index): "speaker\(index)"
+        }
+    }
 }
 
 extension Speaker: Codable {
@@ -17,13 +26,9 @@ extension Speaker: Codable {
         case unrecognizedToken(String)
     }
 
-    /// Encodes as a single token (`you`, `speaker1`, `speaker2`, etc.).
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        switch self {
-        case .you: try container.encode("you")
-        case let .remote(index): try container.encode("speaker\(index)")
-        }
+        try container.encode(token)
     }
 
     init(from decoder: Decoder) throws {

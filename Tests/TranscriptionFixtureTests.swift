@@ -24,7 +24,7 @@ struct TranscriptionFixtureTests {
         let service = TranscriptionService()
 
         let start = Date()
-        let transcript = try await service.transcribeSession(at: sessionURL)
+        let transcript = try await service.transcribeSession(at: sessionURL).transcript
         let elapsed = Date().timeIntervalSince(start)
 
         let outURL = sessionURL.appendingPathComponent("transcript.parakeet.txt")

@@ -2,6 +2,15 @@ import FluidAudio
 import Foundation
 import OSLog
 
+/// A diarized system track: the speaker turns plus each speaker's mean voiceprint, keyed by the
+/// diarizer's raw cluster id. The centroids feed cross-session speaker matching.
+struct Diarization {
+    let turns: [DiarizationTurn]
+    let centroids: [String: [Float]]
+
+    static let empty = Diarization(turns: [], centroids: [:])
+}
+
 /// Diarizes the system-audio track with FluidAudio's offline pyannote community-1 pipeline.
 actor Diarizer {
     private let logger = Logger(category: "Diarizer")
@@ -9,9 +18,10 @@ actor Diarizer {
     private var models: OfflineDiarizerModels?
     private let config = Diarizer.configFromPreferences()
 
-    /// Diarizes a 16 kHz mono recording into speaker turns sorted by start time.
-    /// - Returns: the turns, or an empty array when the track is silent.
-    func turns(in fileURL: URL) async throws -> [DiarizationTurn] {
+    /// Diarizes a 16 kHz mono recording into speaker turns sorted by start time, with each speaker's
+    /// centroid embedding.
+    /// - Returns: the turns and centroids, or empty when the track is silent.
+    func diarize(_ fileURL: URL) async throws -> Diarization {
         let manager = OfflineDiarizerManager(config: config)
         try await manager.initialize(models: loadedModels())
 
@@ -19,8 +29,7 @@ actor Diarizer {
         do {
             result = try await manager.process(fileURL)
         } catch OfflineDiarizationError.noSpeechDetected {
-            // No speech detected, so there are no turns.
-            return []
+            return .empty
         } catch {
             throw TranscriptionError.diarizationFailed(String(describing: error))
         }
@@ -30,15 +39,16 @@ actor Diarizer {
 
         guard !segments.isEmpty else {
             logger.warning("No speech in \(fileURL.lastPathComponent, privacy: .public); remote collapses to Speaker 1")
-            return []
+            return .empty
         }
-        return segments.map {
+        let turns = segments.map {
             DiarizationTurn(
                 start: Double($0.startTimeSeconds),
                 end: Double($0.endTimeSeconds),
                 speakerID: $0.speakerId
             )
         }
+        return Diarization(turns: turns, centroids: result.speakerDatabase ?? [:])
     }
 
     private func loadedModels() async throws -> OfflineDiarizerModels {

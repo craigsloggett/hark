@@ -23,6 +23,7 @@ final class PreferencesTests {
         Preferences.register(into: defaults)
         #expect(defaults.double(forKey: Preferences.Key.diarizationClusteringThreshold) == 0.75)
         #expect(defaults.double(forKey: Preferences.Key.diarizationSpeakerSensitivity) == 0.13)
+        #expect(defaults.double(forKey: Preferences.Key.speakerMatchThreshold) == 0.65)
         #expect(defaults.double(forKey: Preferences.Key.utteranceGap) == 0.4)
         // Library-deferred keys register FluidAudio's live constants.
         #expect(defaults.double(forKey: Preferences.Key.diarizationStepRatio)

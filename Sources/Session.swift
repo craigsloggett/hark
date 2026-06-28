@@ -21,4 +21,8 @@ struct Session {
     var transcriptJSON: URL {
         url.appendingPathComponent("transcript.json")
     }
+
+    var speakers: URL {
+        url.appendingPathComponent("speakers.json")
+    }
 }

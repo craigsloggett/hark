@@ -29,6 +29,17 @@ struct FluidAudioContractTests {
         #expect(OfflineDiarizerConfig.Embedding.community.minSegmentDurationSeconds == 1.0)
     }
 
+    @Test func speakerEmbeddingSizeIsUnchanged() {
+        #expect(SpeakerManager.embeddingSize == 256)
+    }
+
+    /// The match threshold default is an init default, not an exposed constant, so `Preferences`
+    /// mirrors it. Pin both: an SDK change to the default, or drift in our mirror, trips this.
+    @Test func speakerMatchThresholdDefaultIsUnchanged() {
+        #expect(SpeakerManager().speakerThreshold == 0.65)
+        #expect(SpeakerManager().speakerThreshold == Float(Preferences.Default.speakerMatchThreshold))
+    }
+
     // MARK: Slider range bounds
 
     /// `OfflineDiarizerManager.process` validates on every run, so every reachable Advanced-slider

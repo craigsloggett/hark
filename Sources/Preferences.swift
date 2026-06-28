@@ -9,6 +9,7 @@ enum Preferences {
         static let diarizationSpeakerSensitivity = "diarizationSpeakerSensitivity"
         static let diarizationStepRatio = "diarizationStepRatio"
         static let diarizationMinSegmentDuration = "diarizationMinSegmentDuration"
+        static let speakerMatchThreshold = "speakerMatchThreshold"
         static let utteranceGap = "utteranceGap"
     }
 
@@ -25,6 +26,12 @@ enum Preferences {
 
         /// Silence between tokens, in seconds, that ends an utterance.
         static let utteranceGap = 0.4
+
+        /// Maximum cosine distance for matching a session speaker to an enrolled voiceprint;
+        /// FluidAudio's `SpeakerManager` default, mirrored here (it's an init default, not an
+        /// exposed constant) and pinned by a contract test. Lower matches more strictly. This is a
+        /// cosine-distance scale, unrelated to the euclidean `diarizationClusteringThreshold`.
+        static let speakerMatchThreshold = 0.65
 
         /// Community-1's segmentation step ratio; lower sharpens turn boundaries at roughly 2x cost.
         static var diarizationStepRatio: Double {
@@ -46,6 +53,7 @@ enum Preferences {
             Key.diarizationSpeakerSensitivity: Default.diarizationSpeakerSensitivity,
             Key.diarizationStepRatio: Default.diarizationStepRatio,
             Key.diarizationMinSegmentDuration: Default.diarizationMinSegmentDuration,
+            Key.speakerMatchThreshold: Default.speakerMatchThreshold,
             Key.utteranceGap: Default.utteranceGap,
         ])
     }
@@ -64,6 +72,10 @@ enum Preferences {
 
     static var diarizationMinSegmentDuration: Double {
         resolved(Key.diarizationMinSegmentDuration, default: Default.diarizationMinSegmentDuration)
+    }
+
+    static var speakerMatchThreshold: Double {
+        resolved(Key.speakerMatchThreshold, default: Default.speakerMatchThreshold)
     }
 
     static var utteranceGap: Double {
