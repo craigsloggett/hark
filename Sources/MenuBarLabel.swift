@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The menu bar icon: Hark's waveform at rest, with distinct recording and transcribing states.
+/// The menu bar icon, Hark's waveform at rest, with distinct recording and transcribing states.
 struct MenuBarLabel: View {
     @Environment(AudioRecorder.self) private var recorder
 

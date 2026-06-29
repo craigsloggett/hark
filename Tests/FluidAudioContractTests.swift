@@ -2,7 +2,7 @@ import FluidAudio
 @testable import hark
 import Testing
 
-/// Pins the FluidAudio constants and validation bounds hark builds on: the recorder captures at
+/// Pins the FluidAudio constants and validation bounds hark builds on. The recorder captures at
 /// `sampleRate`, `Transcriber` pre-checks each track against the `minimumAudioDurationSeconds`
 /// floor, `Preferences.Default` tracks the community-1 diarization constants (deferring to some,
 /// deliberately overriding others), and the Advanced settings sliders stay within
@@ -37,7 +37,7 @@ struct FluidAudioContractTests {
     }
 
     /// The match threshold default is an init default, not an exposed constant, so `Preferences`
-    /// mirrors it. Pin both: an SDK change to the default, or drift in our mirror, trips this.
+    /// mirrors it. Pinning both means an SDK change to the default, or drift in our mirror, trips this.
     @Test func speakerMatchThresholdDefaultIsUnchanged() {
         #expect(SpeakerManager().speakerThreshold == 0.65)
         #expect(SpeakerManager().speakerThreshold == Float(Preferences.Default.speakerMatchThreshold))

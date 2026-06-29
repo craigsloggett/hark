@@ -2,7 +2,7 @@ import Foundation
 @testable import hark
 import Testing
 
-/// Manual harness: transcribes a real recording session from the app's container with the new
+/// Manual harness that transcribes a real recording session from the app's container with the new
 /// pipeline and writes `transcript.parakeet.txt` beside it, leaving any existing reference
 /// `transcript.txt` untouched. Disabled unless a `.hark-fixture` marker file naming the session
 /// folder exists in the container's Documents, so it never runs in CI.

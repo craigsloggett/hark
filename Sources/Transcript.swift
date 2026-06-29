@@ -2,7 +2,7 @@ import Foundation
 
 enum Speaker: Equatable {
     case you
-    case remote(Int) // 1-based: `.remote(1)` is "Speaker 1"
+    case remote(Int) // 1-based, so `.remote(1)` is "Speaker 1"
 
     var label: String {
         switch self {

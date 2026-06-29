@@ -37,8 +37,9 @@ enum Preferences {
             OfflineDiarizerConfig.Segmentation.community.stepRatio
         }
 
-        /// Minimum segment length, in seconds, that survives diarization. Above community-1's 1.0
-        /// default: compressed remote audio over-segments there; the cost is sub-2s turns merge into a neighbour.
+        /// Minimum segment length, in seconds, that survives diarization. Set above community-1's 1.0
+        /// default because compressed remote audio over-segments there; the cost is sub-2s turns merge
+        /// into a neighbour.
         static let diarizationMinSegmentDuration = 2.0
 
         /// Minimum speech, in seconds, to enroll an unmatched speaker as a new voiceprint; shorter

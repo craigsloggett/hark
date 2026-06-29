@@ -2,7 +2,7 @@ import FluidAudio
 import Foundation
 import OSLog
 
-/// A diarized track: speaker turns, plus each speaker's mean embedding keyed by the diarizer's raw
+/// A diarized track of speaker turns, plus each speaker's mean embedding keyed by the diarizer's raw
 /// cluster id.
 struct Diarization {
     let turns: [DiarizationTurn]

@@ -3,7 +3,7 @@ import Foundation
 @testable import hark
 import Testing
 
-/// Exercises the `Preferences` UserDefaults layer in an isolated, serialized suite: a single fixed
+/// Exercises the `Preferences` UserDefaults layer in an isolated, serialized suite using a single fixed
 /// domain cleared around every test, so tests never race and the real preferences stay untouched.
 @Suite(.serialized)
 final class PreferencesTests {
@@ -33,7 +33,7 @@ final class PreferencesTests {
     }
 
     @Test func resolvedFallsBackToDefaultWhenUnset() {
-        // No register(), no stored value: the accessor must still return the Default, not 0.
+        // With no register() and no stored value, the accessor must still return the Default, not 0.
         let value = Preferences.resolved(
             Preferences.Key.utteranceGap,
             default: Preferences.Default.utteranceGap,

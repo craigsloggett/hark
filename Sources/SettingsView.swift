@@ -5,7 +5,7 @@ enum SettingsWindow {
     static let id = "settings"
 }
 
-/// The tabbed settings window: general app options and advanced transcription tuning.
+/// The tabbed settings window holding general app options and advanced transcription tuning.
 struct SettingsView: View {
     var body: some View {
         TabView {

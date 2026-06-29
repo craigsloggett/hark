@@ -2,7 +2,7 @@ import FluidAudio
 import Foundation
 import OSLog
 
-/// One session's diarized speaker: the diarizer's cluster id, its mean embedding, and speech duration.
+/// One session's diarized speaker, holding the diarizer's cluster id, its mean embedding, and speech duration.
 struct SpeakerCluster {
     let id: String
     let embedding: [Float]

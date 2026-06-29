@@ -44,7 +44,7 @@ final class SpeakerStoreTests {
         let first = await store.resolve([SpeakerCluster(id: "S1", embedding: embedding([1]), duration: 10)])
         let idA = try #require(first["S1"]?.id)
 
-        // Orthogonal embedding: cosine distance 1.0, well past the 0.65 threshold.
+        // An orthogonal embedding is cosine distance 1.0, well past the 0.65 threshold.
         let next = SpeakerStore(directory: directory)
         let second = await next.resolve([SpeakerCluster(id: "S1", embedding: embedding([0, 1]), duration: 10)])
         let idB = try #require(second["S1"]?.id)
@@ -69,7 +69,7 @@ final class SpeakerStoreTests {
 
     @Test func shortUnmatchedSpeakerStaysPositional() async {
         let store = SpeakerStore(directory: directory)
-        // Below the 1.0s enroll floor and matching nothing: no identity, no enrollment.
+        // Below the 1.0s enroll floor and matching nothing, so no identity and no enrollment.
         let resolved = await store.resolve([SpeakerCluster(id: "S1", embedding: embedding([1]), duration: 0.5)])
         #expect(resolved["S1"] == nil)
         #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent("voiceprints.json").path))
