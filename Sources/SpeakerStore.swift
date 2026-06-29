@@ -9,8 +9,6 @@ struct SpeakerCluster {
     let duration: Float
 }
 
-/// A persisted voiceprint. Hark's own type, not FluidAudio's `Speaker`, so the on-disk format stays
-/// stable across library bumps.
 struct Voiceprint: Codable, Equatable {
     let id: String
     let name: String?
