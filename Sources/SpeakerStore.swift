@@ -91,8 +91,8 @@ actor SpeakerStore {
         for cluster in clusters.sorted(by: { $0.duration > $1.duration }) {
             guard cluster.embedding.count == SpeakerManager.embeddingSize else { continue }
             let matches = snapshot.findMatchingSpeakers(with: cluster.embedding, speakerThreshold: threshold)
-            // matches is nearest-first (FluidAudio sorts ascending, pinned by a contract test), so the
-            // first unclaimed match is the closest identity still available to this cluster.
+            // matches is nearest-first so the first unclaimed match is the closest identity still
+            // available to this cluster.
             if let match = matches.first(where: { !claimed.contains($0.id) }) {
                 claimed.insert(match.id)
                 resolved[cluster.id] = SpeakerIdentity(id: match.id, name: byID[match.id]?.name)
