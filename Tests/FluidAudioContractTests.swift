@@ -49,6 +49,28 @@ struct FluidAudioContractTests {
         #expect(SpeakerManager().minSpeechDuration == Float(Preferences.Default.speakerMinEnrollmentDuration))
     }
 
+    /// `SpeakerStore.assign`'s contested-claim pick (`matches.first(where:)`) and the
+    /// `HARK_SPEAKER_DEBUG` nearest both treat the first match as the closest, so pin FluidAudio's
+    /// nearest-first ordering.
+    @Test func findMatchingSpeakersReturnsNearestFirst() {
+        var manager = SpeakerManager(speakerThreshold: 2)
+        manager.upsertSpeaker(id: "near", currentEmbedding: embedding([1]), duration: 1)
+        manager.upsertSpeaker(id: "far", currentEmbedding: embedding([0, 1]), duration: 1)
+
+        let matches = manager.findMatchingSpeakers(with: embedding([1, 0.05]))
+        #expect(matches.map(\.id) == ["near", "far"])
+        #expect(matches.map(\.distance) == matches.map(\.distance).sorted())
+    }
+
+    /// A 256-d embedding with `leading` values at the front and zeros elsewhere.
+    private func embedding(_ leading: [Float]) -> [Float] {
+        var values = [Float](repeating: 0, count: SpeakerManager.embeddingSize)
+        for (index, value) in leading.enumerated() {
+            values[index] = value
+        }
+        return values
+    }
+
     // MARK: Slider range bounds
 
     /// `OfflineDiarizerManager.process` validates on every run, so every reachable Advanced-slider
