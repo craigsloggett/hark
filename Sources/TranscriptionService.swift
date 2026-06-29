@@ -79,7 +79,7 @@ struct TranscriptionService {
         return session.transcriptText
     }
 
-    /// Resolves each diarized speaker's centroid to an identity, keyed by on-disk token to align
+    /// Resolves each diarized speaker's embedding to an identity, keyed by on-disk token to align
     /// with `transcript.json`.
     private func resolveIdentities(
         _ diarization: Diarization,
@@ -90,8 +90,8 @@ struct TranscriptionService {
             durations[turn.speakerID, default: 0] += Float(turn.end - turn.start)
         }
         let clusters = timeline.speakersByClusterID.compactMap { clusterID, _ -> SpeakerCluster? in
-            guard let centroid = diarization.centroids[clusterID] else { return nil }
-            return SpeakerCluster(id: clusterID, centroid: centroid, duration: durations[clusterID] ?? 0)
+            guard let embedding = diarization.embeddings[clusterID] else { return nil }
+            return SpeakerCluster(id: clusterID, embedding: embedding, duration: durations[clusterID] ?? 0)
         }
         guard !clusters.isEmpty else { return [:] }
 

@@ -2,13 +2,13 @@ import FluidAudio
 import Foundation
 import OSLog
 
-/// A diarized track: speaker turns, plus each speaker's mean-embedding voiceprint keyed by the
-/// diarizer's raw cluster id.
+/// A diarized track: speaker turns, plus each speaker's mean embedding keyed by the diarizer's raw
+/// cluster id.
 struct Diarization {
     let turns: [DiarizationTurn]
-    let centroids: [String: [Float]]
+    let embeddings: [String: [Float]]
 
-    static let empty = Diarization(turns: [], centroids: [:])
+    static let empty = Diarization(turns: [], embeddings: [:])
 }
 
 /// Diarizes the system-audio track with FluidAudio's offline pyannote community-1 pipeline.
@@ -18,7 +18,7 @@ actor Diarizer {
     private var models: OfflineDiarizerModels?
     private let config = Diarizer.configFromPreferences()
 
-    /// Diarizes a 16 kHz mono recording into start-sorted speaker turns and per-speaker centroids.
+    /// Diarizes a 16 kHz mono recording into start-sorted speaker turns and per-speaker embeddings.
     /// - Returns: empty when the track is silent.
     func diarize(_ fileURL: URL) async throws -> Diarization {
         let manager = OfflineDiarizerManager(config: config)
@@ -47,7 +47,7 @@ actor Diarizer {
                 speakerID: $0.speakerId
             )
         }
-        return Diarization(turns: turns, centroids: result.speakerDatabase ?? [:])
+        return Diarization(turns: turns, embeddings: result.speakerDatabase ?? [:])
     }
 
     private func loadedModels() async throws -> OfflineDiarizerModels {

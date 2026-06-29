@@ -2,10 +2,10 @@ import FluidAudio
 import Foundation
 import OSLog
 
-/// One session's diarized speaker: the diarizer's cluster id, its mean-embedding voiceprint, and speech duration.
+/// One session's diarized speaker: the diarizer's cluster id, its mean embedding, and speech duration.
 struct SpeakerCluster {
     let id: String
-    let centroid: [Float]
+    let embedding: [Float]
     let duration: Float
 }
 
@@ -58,6 +58,9 @@ actor SpeakerStore {
             clusters, against: snapshot, known: known, threshold: threshold, enrollFloor: enrollFloor
         )
 
+        let summary = String(format: "Resolved %d/%d speakers, %d new", resolved.count, clusters.count, enrolled.count)
+        logger.log("\(summary, privacy: .public)")
+
         if !enrolled.isEmpty {
             do {
                 try save(known + enrolled)
@@ -87,31 +90,18 @@ actor SpeakerStore {
 
         // Longest-speaking cluster claims a contested identity first; later claimants enroll fresh.
         for cluster in clusters.sorted(by: { $0.duration > $1.duration }) {
-            guard cluster.centroid.count == SpeakerManager.embeddingSize else {
-                let line = "Cluster \(cluster.id): \(cluster.centroid.count)-d embedding, skipping"
-                logger.warning("\(line, privacy: .public)")
-                continue
-            }
-            let matches = snapshot.findMatchingSpeakers(with: cluster.centroid, speakerThreshold: threshold)
+            guard cluster.embedding.count == SpeakerManager.embeddingSize else { continue }
+            let matches = snapshot.findMatchingSpeakers(with: cluster.embedding, speakerThreshold: threshold)
             if let match = matches.first(where: { !claimed.contains($0.id) }) {
                 claimed.insert(match.id)
                 resolved[cluster.id] = SpeakerIdentity(id: match.id, name: byID[match.id]?.name)
-                let distance = String(format: "%.3f", match.distance)
-                let line = "Cluster \(cluster.id) matched \(match.id) at \(distance)"
-                logger.log("\(line, privacy: .public)")
             } else if cluster.duration >= enrollFloor {
                 let fresh = Voiceprint(
-                    id: UUID().uuidString, name: nil, embedding: cluster.centroid, duration: cluster.duration
+                    id: UUID().uuidString, name: nil, embedding: cluster.embedding, duration: cluster.duration
                 )
                 enrolled.append(fresh)
                 claimed.insert(fresh.id)
                 resolved[cluster.id] = SpeakerIdentity(id: fresh.id, name: nil)
-                let line = "Cluster \(cluster.id) enrolled \(fresh.id)"
-                logger.log("\(line, privacy: .public)")
-            } else {
-                let secs = String(format: "%.1f", cluster.duration)
-                let line = "Cluster \(cluster.id) unmatched, \(secs)s under enroll floor; left positional"
-                logger.log("\(line, privacy: .public)")
             }
         }
         return (resolved, enrolled)
