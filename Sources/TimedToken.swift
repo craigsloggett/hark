@@ -42,8 +42,8 @@ extension [TimedToken] {
         }
 
         for token in self {
-            // Punctuation rides along with the word it follows; it never opens or closes a run and
-            // is dropped when no run is open yet.
+            // Punctuation rides along with the word it follows (it never opens or closes a run and
+            // is dropped when no run is open yet).
             if token.isPunctuation {
                 if !run.isEmpty { run.append(token) }
                 continue

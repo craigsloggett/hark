@@ -133,7 +133,7 @@ struct TimedTokenTests {
     }
 
     @Test func subwordContinuationNeverSplitsOnGap() {
-        // "we'" and "re" are pieces of one word; a timing gap between them must not split it.
+        // "we'" and "re" are pieces of one word (a timing gap between them must not split it).
         let tokens = [
             TimedToken(start: 0, end: 1, text: " we'"),
             TimedToken(start: 2, end: 3, text: "re"),

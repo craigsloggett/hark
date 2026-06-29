@@ -23,7 +23,7 @@ struct AudioRecorderTests {
     }
 
     @Test func outputCapacityDownsamplesWithLatencySlack() {
-        // 48 kHz -> 16 kHz thirds the frame count; the slack guards the resampler's internal latency.
+        // 48 kHz -> 16 kHz thirds the frame count (the slack guards the resampler's internal latency).
         let capacity = SystemAudioTap.outputCapacity(
             inputFrames: 480,
             inputSampleRate: 48000,

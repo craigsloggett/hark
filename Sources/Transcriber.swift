@@ -16,8 +16,8 @@ actor Transcriber {
 
     /// Transcribes one 16 kHz mono track into tokens carrying per-token start/end times.
     /// - Parameters:
-    ///   - locale: hints the multilingual model's script filtering; ignored when its language
-    ///     isn't one Parakeet recognizes.
+    ///   - locale: hints the multilingual model's script filtering (ignored when its language
+    ///     isn't one Parakeet recognizes).
     /// - Returns: the timed tokens, or an empty array when the track is silent or too short.
     func tokens(in fileURL: URL, locale: Locale) async throws -> [TimedToken] {
         let audioFile: AVAudioFile

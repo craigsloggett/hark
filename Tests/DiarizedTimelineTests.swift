@@ -37,9 +37,9 @@ struct DiarizedTimelineTests {
             DiarizationTurn(start: 0, end: 2, speakerID: "A"),
             DiarizationTurn(start: 8, end: 10, speakerID: "B"),
         ])
-        // 5.5 is in the gap; nearer B's midpoint (9) than A's (1).
+        // 5.5 is in the gap (nearer B's midpoint 9 than A's 1).
         #expect(timeline.speaker(at: 5.5) == .remote(2))
-        // 3 is in the gap; nearer A's midpoint (1) than B's (9).
+        // 3 is in the gap (nearer A's midpoint 1 than B's 9).
         #expect(timeline.speaker(at: 3) == .remote(1))
     }
 
@@ -48,7 +48,7 @@ struct DiarizedTimelineTests {
             DiarizationTurn(start: 0, end: 2, speakerID: "A"),
             DiarizationTurn(start: 8, end: 10, speakerID: "B"),
         ])
-        // 5 is equidistant from both midpoints (1 and 9); the earlier turn wins.
+        // 5 is equidistant from both midpoints 1 and 9 (the earlier turn wins).
         #expect(timeline.speaker(at: 5) == .remote(1))
     }
 

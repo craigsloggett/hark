@@ -18,7 +18,7 @@ enum TranscriptionError: LocalizedError {
 }
 
 /// A transcribed session plus each remote speaker's cross-session identity, keyed by on-disk token.
-/// The transcript stays positional and portable; identities live in the `speakers.json` overlay.
+/// The transcript stays positional and portable (identities live in the `speakers.json` overlay).
 struct Transcription {
     let transcript: Transcript
     let speakers: [String: SpeakerIdentity]
@@ -48,7 +48,7 @@ struct TranscriptionService {
             .segments(resolving: { _ in .you }, gap: gap)
 
         let systemTokens = try await transcriber.tokens(in: session.system, locale: locale)
-        // Diarization only labels remote speech; skip it when the track is silent.
+        // Diarization only labels remote speech (skip it when the track is silent).
         let them: [TranscriptSegment]
         var speakers: [String: SpeakerIdentity] = [:]
         if systemTokens.isEmpty {
@@ -61,7 +61,7 @@ struct TranscriptionService {
             speakers = await resolveIdentities(diarization, timeline: timeline)
         }
 
-        // `them` is built on the system file's own timeline; shifting realigns it onto the mic's.
+        // `them` is built on the system file's own timeline (shifting realigns it onto the mic's).
         let transcript = Transcript.merging(you, them.shifted(by: offset))
         return Transcription(transcript: transcript, speakers: speakers)
     }

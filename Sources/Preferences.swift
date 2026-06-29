@@ -17,40 +17,40 @@ enum Preferences {
     /// Defaults, in seconds where applicable. The two that defer to FluidAudio reference its
     /// constants so they track the library.
     enum Default {
-        /// Euclidean distance threshold for clustering speaker embeddings; higher keeps more of
-        /// them apart as separate speakers.
+        /// Euclidean distance threshold for clustering speaker embeddings (higher keeps more of
+        /// them apart as separate speakers).
         static let diarizationClusteringThreshold = 0.75
 
-        /// FluidAudio's VBx warm-start `Fa` parameter; higher splits embeddings into more speakers,
-        /// lower merges them.
+        /// FluidAudio's VBx warm-start `Fa` parameter (higher splits embeddings into more speakers,
+        /// lower merges them).
         static let diarizationSpeakerSensitivity = 0.13
 
         /// Silence between tokens, in seconds, that ends an utterance.
         static let utteranceGap = 0.4
 
-        /// Maximum cosine distance to match a session speaker to an enrolled voiceprint; lower is
-        /// stricter. A different metric from `diarizationClusteringThreshold`, so the value doesn't carry over.
+        /// Maximum cosine distance to match a session speaker to an enrolled voiceprint (lower is
+        /// stricter). A different metric from `diarizationClusteringThreshold`, so the value doesn't carry over.
         static let speakerMatchThreshold = 0.65
 
-        /// Community-1's segmentation step ratio; lower sharpens turn boundaries at roughly 2x cost.
+        /// Community-1's segmentation step ratio (lower sharpens turn boundaries at roughly 2x cost).
         static var diarizationStepRatio: Double {
             OfflineDiarizerConfig.Segmentation.community.stepRatio
         }
 
         /// Minimum segment length, in seconds, that survives diarization. Set above community-1's 1.0
-        /// default because compressed remote audio over-segments there; the cost is sub-2s turns merge
-        /// into a neighbour.
+        /// default because compressed remote audio over-segments there (the cost is sub-2s turns merge
+        /// into a neighbour).
         static let diarizationMinSegmentDuration = 2.0
 
-        /// Minimum speech, in seconds, to enroll an unmatched speaker as a new voiceprint; shorter
-        /// ones stay positional but still match existing voiceprints. Higher resists brief fragments.
+        /// Minimum speech, in seconds, to enroll an unmatched speaker as a new voiceprint (shorter
+        /// ones stay positional but still match existing voiceprints). Higher resists brief fragments.
         static var speakerMinEnrollmentDuration: Double {
             Double(SpeakerManager().minSpeechDuration)
         }
     }
 
-    /// Seeds the registration domain so `defaults read` shows the effective defaults; reads fall
-    /// back to `Default` without it.
+    /// Seeds the registration domain so `defaults read` shows the effective defaults (reads fall
+    /// back to `Default` without it).
     static func register(into defaults: UserDefaults = .standard) {
         defaults.register(defaults: [
             Key.diarizationClusteringThreshold: Default.diarizationClusteringThreshold,

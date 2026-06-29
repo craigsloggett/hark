@@ -16,7 +16,7 @@ struct Voiceprint: Codable, Equatable {
     let duration: Float
 }
 
-/// A session speaker's resolved identity; `name` is `nil` until the voiceprint is named.
+/// A session speaker's resolved identity (`name` is `nil` until the voiceprint is named).
 struct SpeakerIdentity: Codable, Equatable {
     let id: String
     let name: String?
@@ -24,21 +24,21 @@ struct SpeakerIdentity: Codable, Equatable {
 
 /// Matches each session's diarized speakers against a persisted voiceprint database so a recurring
 /// voice keeps a stable identity across sessions. Matching is read-only against a pre-session
-/// snapshot, so two voices in one meeting can't collapse together; unmatched speakers enroll only
-/// past a duration floor, keeping brief diarization fragments out of the database.
+/// snapshot, so two voices in one meeting can't collapse together (unmatched speakers enroll only
+/// past a duration floor, keeping brief diarization fragments out of the database).
 actor SpeakerStore {
     private let directory: URL?
     private let logger = Logger(category: "SpeakerStore")
 
-    /// - Parameter directory: where `voiceprints.json` lives; defaults to the sandbox container's
-    ///   `Application Support/Hark`.
+    /// - Parameter directory: where `voiceprints.json` lives (defaults to the sandbox container's
+    ///   `Application Support/Hark`).
     init(directory: URL? = nil) {
         self.directory = directory
     }
 
     /// Resolves each cluster to a stable identity, enrolling and persisting new voiceprints.
-    /// - Returns: cluster id to identity; empty when the database can't be read, so a corrupt file
-    ///   degrades to positional speakers instead of being overwritten.
+    /// - Returns: cluster id to identity (empty when the database can't be read, so a corrupt file
+    ///   degrades to positional speakers instead of being overwritten).
     func resolve(_ clusters: [SpeakerCluster]) -> [String: SpeakerIdentity] {
         let known: [Voiceprint]
         do {
@@ -87,11 +87,11 @@ actor SpeakerStore {
         var enrolled: [Voiceprint] = []
         var resolved: [String: SpeakerIdentity] = [:]
 
-        // Longest-speaking cluster claims a contested identity first; later claimants enroll fresh.
+        // Longest-speaking cluster claims a contested identity first (later claimants enroll fresh).
         for cluster in clusters.sorted(by: { $0.duration > $1.duration }) {
             guard cluster.embedding.count == SpeakerManager.embeddingSize else { continue }
             let matches = snapshot.findMatchingSpeakers(with: cluster.embedding, speakerThreshold: threshold)
-            // matches is nearest-first (FluidAudio sorts ascending; pinned by a contract test), so the
+            // matches is nearest-first (FluidAudio sorts ascending, pinned by a contract test), so the
             // first unclaimed match is the closest identity still available to this cluster.
             if let match = matches.first(where: { !claimed.contains($0.id) }) {
                 claimed.insert(match.id)
@@ -153,7 +153,7 @@ actor SpeakerStore {
         let dump = clusters
             .filter { $0.embedding.count == SpeakerManager.embeddingSize }
             .map { cluster -> DebugMatch in
-                // 2 is the maximum cosine distance, so this ranks every known voiceprint; .first is nearest.
+                // 2 is the maximum cosine distance, so this ranks every known voiceprint (.first is nearest).
                 let nearest = snapshot.findMatchingSpeakers(with: cluster.embedding, speakerThreshold: 2).first
                 return DebugMatch(
                     cluster: cluster.id,

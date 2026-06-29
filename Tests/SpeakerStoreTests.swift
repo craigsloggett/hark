@@ -56,8 +56,8 @@ final class SpeakerStoreTests {
         let enrolled = await store.resolve([SpeakerCluster(id: "S1", embedding: embedding([1]), duration: 20)])
         let idA = try #require(enrolled["S1"]?.id)
 
-        // Two clusters resemble the enrolled voice in one session; only the longer-speaking one
-        // claims the identity, the other enrolls fresh.
+        // Two clusters resemble the enrolled voice in one session (only the longer-speaking one
+        // claims the identity, the other enrolls fresh).
         let next = SpeakerStore(directory: directory)
         let resolved = await next.resolve([
             SpeakerCluster(id: "long", embedding: embedding([1, 0.01]), duration: 30),

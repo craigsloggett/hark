@@ -27,7 +27,7 @@ struct FluidAudioContractTests {
     }
 
     /// hark overrides this (`Preferences.Default.diarizationMinSegmentDuration` is 2.0) because the
-    /// library's 1.0 over-segments compressed audio; pin the library value so a bump gets noticed.
+    /// library's 1.0 over-segments compressed audio (pin the library value so a bump gets noticed).
     @Test func diarizationMinSegmentDefaultIsUnchanged() {
         #expect(OfflineDiarizerConfig.Embedding.community.minSegmentDurationSeconds == 1.0)
     }
