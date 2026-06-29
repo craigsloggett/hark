@@ -57,6 +57,7 @@ actor SpeakerStore {
         let (resolved, enrolled) = assign(
             clusters, against: snapshot, known: known, threshold: threshold, enrollFloor: enrollFloor
         )
+        writeDebugDump(clusters, against: snapshot, threshold: threshold)
 
         let summary = String(format: "Resolved %d/%d speakers, %d new", resolved.count, clusters.count, enrolled.count)
         logger.log("\(summary, privacy: .public)")
@@ -141,5 +142,49 @@ actor SpeakerStore {
         }
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         return folder.appendingPathComponent("voiceprints.json")
+    }
+
+    // MARK: Debug
+
+    /// When `HARK_SPEAKER_DEBUG` is set, writes each cluster's nearest known voiceprint and distance
+    /// to `matches.debug.json` beside the database, for tuning `speakerMatchThreshold`.
+    private func writeDebugDump(_ clusters: [SpeakerCluster], against snapshot: SpeakerManager, threshold: Float) {
+        guard ProcessInfo.processInfo.flag(forKey: "HARK_SPEAKER_DEBUG") else { return }
+        let dump = clusters
+            .filter { $0.embedding.count == SpeakerManager.embeddingSize }
+            .map { cluster -> DebugMatch in
+                // 2 is the maximum cosine distance, so this ranks every known voiceprint; .first is nearest.
+                let nearest = snapshot.findMatchingSpeakers(with: cluster.embedding, speakerThreshold: 2).first
+                return DebugMatch(
+                    cluster: cluster.id,
+                    duration: Double(cluster.duration),
+                    nearest: nearest?.id,
+                    distance: nearest.map { Double($0.distance) },
+                    threshold: Double(threshold)
+                )
+            }
+        do {
+            let folder = try voiceprintsURL().deletingLastPathComponent()
+            try dump.writeJSON(to: folder.appendingPathComponent("matches.debug.json"), sortedKeys: true)
+        } catch {
+            logger.error("Couldn't write speaker debug dump: \(error, privacy: .public)")
+        }
+    }
+
+    /// One cluster's match outcome in the `HARK_SPEAKER_DEBUG` dump.
+    private struct DebugMatch: Encodable {
+        let cluster: String
+        let duration: Double
+        let nearest: String?
+        let distance: Double?
+        let matched: Bool
+
+        init(cluster: String, duration: Double, nearest: String?, distance: Double?, threshold: Double) {
+            self.cluster = cluster
+            self.duration = duration
+            self.nearest = nearest
+            self.distance = distance
+            matched = distance.map { $0 <= threshold } ?? false
+        }
     }
 }
