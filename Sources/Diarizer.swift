@@ -77,7 +77,6 @@ actor Diarizer {
         return maxSpeakers > 0 ? config.withSpeakers(max: maxSpeakers) : config
     }
 
-    /// Logs a one-line diarization summary.
     private func logSummary(_ segments: [TimedSpeakerSegment], config: OfflineDiarizerConfig, for fileURL: URL) {
         let speakers = Set(segments.map(\.speakerId)).count
         let speech = segments.reduce(Float(0)) { $0 + $1.durationSeconds }

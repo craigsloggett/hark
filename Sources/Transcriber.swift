@@ -70,7 +70,6 @@ actor Transcriber {
         return Language(rawValue: code)
     }
 
-    /// Logs a one-line transcription summary.
     private func logSummary(_ result: ASRResult, tokens: [TimedToken], for fileURL: URL) {
         let summary = String(
             format: "%d tokens, %.1fs audio, confidence %.2f, %.1fx realtime",

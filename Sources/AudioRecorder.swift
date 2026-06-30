@@ -37,7 +37,6 @@ final class AudioRecorder {
         }
     }
 
-    /// Stops the active recording and immediately transcribes it to disk.
     func stopAndTranscribe() {
         stop()
         transcribeLastSession()
