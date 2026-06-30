@@ -43,6 +43,13 @@ struct FluidAudioContractTests {
         #expect(OfflineDiarizerConfig.Clustering.community.warmStartFb == Preferences.Default.diarizationSpeakerRecall)
     }
 
+    /// Fa (split sensitivity) defers to community-1 like Fb; pin the constant and our mirror together.
+    @Test func diarizationSpeakerSensitivityDefaultIsUnchanged() {
+        #expect(OfflineDiarizerConfig.Clustering.community.warmStartFa == 0.07)
+        #expect(OfflineDiarizerConfig.Clustering.community.warmStartFa
+            == Preferences.Default.diarizationSpeakerSensitivity)
+    }
+
     @Test func diarizationMinGapDefaultIsUnchanged() {
         #expect(OfflineDiarizerConfig.PostProcessing.community.minGapDurationSeconds == 0.1)
         #expect(OfflineDiarizerConfig.PostProcessing.community.minGapDurationSeconds

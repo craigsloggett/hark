@@ -28,9 +28,13 @@ enum Preferences {
         /// them apart as separate speakers).
         static let diarizationClusteringThreshold = 0.75
 
-        /// FluidAudio's VBx warm-start `Fa` parameter (higher splits embeddings into more speakers,
-        /// lower merges them).
-        static let diarizationSpeakerSensitivity = 0.13
+        /// FluidAudio's VBx warm-start `Fa` (higher splits embeddings into more speakers, lower
+        /// merges them). Defers to community-1: an earlier hark literal of 0.13 over-split
+        /// multi-speaker recordings (12 vs 7 speakers on a 39-minute meeting) with no gain on
+        /// simpler ones, versus the library-tuned 0.07.
+        static var diarizationSpeakerSensitivity: Double {
+            OfflineDiarizerConfig.Clustering.community.warmStartFa
+        }
 
         /// Silence between tokens, in seconds, that ends an utterance.
         static let utteranceGap = 0.4

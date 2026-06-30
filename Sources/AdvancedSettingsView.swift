@@ -121,7 +121,8 @@ struct AdvancedSettingsView: View {
                     "Limit number of speakers",
                     value: $maxSpeakers, range: 0 ... 10,
                     valueText: { $0 == 0 ? "Auto" : "\($0)" },
-                    help: "Cap how many speakers Hark may find in a session. Auto lets it decide."
+                    help: "Cap how many speakers Hark may find in a session; it tends to find close "
+                        + "to this many. Auto lets it decide."
                 )
             }
 

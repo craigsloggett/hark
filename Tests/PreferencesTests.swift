@@ -22,7 +22,6 @@ final class PreferencesTests {
     @Test func registerSeedsEveryDefault() {
         Preferences.register(into: defaults)
         #expect(defaults.double(forKey: Preferences.Key.diarizationClusteringThreshold) == 0.75)
-        #expect(defaults.double(forKey: Preferences.Key.diarizationSpeakerSensitivity) == 0.13)
         #expect(defaults.double(forKey: Preferences.Key.diarizationMinSegmentDuration) == 2.0)
         #expect(defaults.double(forKey: Preferences.Key.speakerMatchThreshold) == 0.65)
         #expect(defaults.double(forKey: Preferences.Key.speakerMinEnrollmentDuration) == 1.0)
@@ -32,6 +31,8 @@ final class PreferencesTests {
         // Library-deferred keys register FluidAudio's live constants rather than mirrored literals.
         #expect(defaults.double(forKey: Preferences.Key.diarizationStepRatio)
             == OfflineDiarizerConfig.Segmentation.community.stepRatio)
+        #expect(defaults.double(forKey: Preferences.Key.diarizationSpeakerSensitivity)
+            == OfflineDiarizerConfig.Clustering.community.warmStartFa)
         #expect(defaults.double(forKey: Preferences.Key.diarizationSpeakerRecall)
             == OfflineDiarizerConfig.Clustering.community.warmStartFb)
         #expect(defaults.double(forKey: Preferences.Key.diarizationMinGapDuration)
