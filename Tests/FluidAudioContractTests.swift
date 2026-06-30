@@ -36,6 +36,33 @@ struct FluidAudioContractTests {
         #expect(SpeakerManager.embeddingSize == 256)
     }
 
+    /// The Fb (recall), gap-bridging, and overlap-trimming defaults defer to FluidAudio, so pin the
+    /// community-1 constants and our mirrors together.
+    @Test func diarizationSpeakerRecallDefaultIsUnchanged() {
+        #expect(OfflineDiarizerConfig.Clustering.community.warmStartFb == 0.8)
+        #expect(OfflineDiarizerConfig.Clustering.community.warmStartFb == Preferences.Default.diarizationSpeakerRecall)
+    }
+
+    @Test func diarizationMinGapDefaultIsUnchanged() {
+        #expect(OfflineDiarizerConfig.PostProcessing.community.minGapDurationSeconds == 0.1)
+        #expect(OfflineDiarizerConfig.PostProcessing.community.minGapDurationSeconds
+            == Preferences.Default.diarizationMinGapDuration)
+    }
+
+    @Test func diarizationExclusiveSegmentsDefaultIsUnchanged() {
+        #expect(OfflineDiarizerConfig.PostProcessing.community.exclusiveSegments == true)
+        #expect(OfflineDiarizerConfig.PostProcessing.community.exclusiveSegments
+            == Preferences.Default.diarizationExclusiveSegments)
+    }
+
+    /// The ASR knobs defer to `ASRConfig`'s init defaults, also not exposed as constants.
+    @Test func asrConfigDefaultsAreUnchanged() {
+        #expect(ASRConfig().dualDecodeArbitration == false)
+        #expect(ASRConfig().dualDecodeArbitration == Preferences.Default.asrDualDecodeArbitration)
+        #expect(ASRConfig().parallelChunkConcurrency == 4)
+        #expect(ASRConfig().parallelChunkConcurrency == Preferences.Default.asrParallelChunkConcurrency)
+    }
+
     /// The match threshold default is an init default, not an exposed constant, so `Preferences`
     /// mirrors it. Pinning both means an SDK change to the default, or drift in our mirror, trips this.
     @Test func speakerMatchThresholdDefaultIsUnchanged() {
@@ -77,10 +104,12 @@ struct FluidAudioContractTests {
     /// position must produce a config that passes. Catches an SDK bound tightening under our ranges.
     @Test func advancedSliderExtremesPassValidation() throws {
         try OfflineDiarizerConfig(
-            clusteringThreshold: 1.0, Fa: 0.01, segmentationStepRatio: 0.01, minSegmentDuration: 0.0
+            clusteringThreshold: 1.0, Fa: 0.01, Fb: 0.1, segmentationStepRatio: 0.01,
+            minSegmentDuration: 0.0, minGapDuration: 0.0, exclusiveSegments: false
         ).validate()
         try OfflineDiarizerConfig(
-            clusteringThreshold: 0.1, Fa: 0.5, segmentationStepRatio: 1.0, minSegmentDuration: 5.0
+            clusteringThreshold: 0.1, Fa: 0.5, Fb: 2.0, segmentationStepRatio: 1.0,
+            minSegmentDuration: 5.0, minGapDuration: 1.0, exclusiveSegments: true
         ).validate()
     }
 

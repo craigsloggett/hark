@@ -51,7 +51,11 @@ actor Transcriber {
         if let manager { return manager }
         do {
             let models = try await AsrModels.downloadAndLoad(version: .v3)
-            let loaded = AsrManager(models: models)
+            let config = ASRConfig(
+                parallelChunkConcurrency: Preferences.asrParallelChunkConcurrency,
+                dualDecodeArbitration: Preferences.asrDualDecodeArbitration
+            )
+            let loaded = AsrManager(config: config, models: models)
             manager = loaded
             return loaded
         } catch {

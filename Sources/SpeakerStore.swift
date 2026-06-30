@@ -43,8 +43,10 @@ struct Voiceprint: Codable, Equatable {
     let name: String?
     let samples: [VoiceSample]
 
-    /// Cap on samples per voiceprint. The initializer keeps the newest this many.
-    static let maxSamples = 5
+    /// Cap on samples per voiceprint, from `Preferences`. The initializer keeps the newest this many.
+    static var maxSamples: Int {
+        Preferences.voiceprintMaxSamples
+    }
 
     init(id: String, name: String?, samples: [VoiceSample]) {
         self.id = id

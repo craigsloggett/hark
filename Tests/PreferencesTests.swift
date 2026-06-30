@@ -27,9 +27,21 @@ final class PreferencesTests {
         #expect(defaults.double(forKey: Preferences.Key.speakerMatchThreshold) == 0.65)
         #expect(defaults.double(forKey: Preferences.Key.speakerMinEnrollmentDuration) == 1.0)
         #expect(defaults.double(forKey: Preferences.Key.utteranceGap) == 0.4)
-        // The one remaining library-deferred key registers FluidAudio's live constant.
+        #expect(defaults.integer(forKey: Preferences.Key.voiceprintMaxSamples) == 5)
+        #expect(defaults.integer(forKey: Preferences.Key.diarizationMaxSpeakers) == 0)
+        // Library-deferred keys register FluidAudio's live constants rather than mirrored literals.
         #expect(defaults.double(forKey: Preferences.Key.diarizationStepRatio)
             == OfflineDiarizerConfig.Segmentation.community.stepRatio)
+        #expect(defaults.double(forKey: Preferences.Key.diarizationSpeakerRecall)
+            == OfflineDiarizerConfig.Clustering.community.warmStartFb)
+        #expect(defaults.double(forKey: Preferences.Key.diarizationMinGapDuration)
+            == OfflineDiarizerConfig.PostProcessing.community.minGapDurationSeconds)
+        #expect(defaults.bool(forKey: Preferences.Key.diarizationExclusiveSegments)
+            == OfflineDiarizerConfig.PostProcessing.community.exclusiveSegments)
+        #expect(defaults.bool(forKey: Preferences.Key.asrDualDecodeArbitration)
+            == ASRConfig().dualDecodeArbitration)
+        #expect(defaults.integer(forKey: Preferences.Key.asrParallelChunkConcurrency)
+            == ASRConfig().parallelChunkConcurrency)
     }
 
     @Test func resolvedFallsBackToDefaultWhenUnset() {
@@ -50,5 +62,20 @@ final class PreferencesTests {
             in: defaults
         )
         #expect(value == 0.9)
+    }
+
+    @Test func resolvedBoolAndIntFallBackWhenUnset() {
+        // Keys Preferences never registers, so the lookup is truly unset and the fallback is returned
+        // (a real Key would resolve to its seeded registration value, masking the fallback path).
+        #expect(Preferences.resolved("hark.tests.unsetFlag", default: true, in: defaults))
+        #expect(Preferences.resolved("hark.tests.unsetCount", default: 7, in: defaults) == 7)
+    }
+
+    @Test func resolvedReadsStoredBoolAndIntOverrides() {
+        defaults.set(false, forKey: Preferences.Key.diarizationExclusiveSegments)
+        #expect(!Preferences.resolved(Preferences.Key.diarizationExclusiveSegments, default: true, in: defaults))
+
+        defaults.set(12, forKey: Preferences.Key.voiceprintMaxSamples)
+        #expect(Preferences.resolved(Preferences.Key.voiceprintMaxSamples, default: 5, in: defaults) == 12)
     }
 }

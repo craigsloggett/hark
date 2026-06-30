@@ -16,11 +16,12 @@ actor Diarizer {
     private let logger = Logger(category: "Diarizer")
 
     private var models: OfflineDiarizerModels?
-    private let config = Diarizer.configFromPreferences()
 
     /// Diarizes a 16 kHz mono recording into start-sorted speaker turns and per-speaker embeddings.
     /// - Returns: empty when the track is silent.
     func diarize(_ fileURL: URL) async throws -> Diarization {
+        // Read preferences per call so Advanced-pane changes apply on the next recording, no restart.
+        let config = Self.configFromPreferences()
         let manager = OfflineDiarizerManager(config: config)
         try await manager.initialize(models: loadedModels())
 
@@ -34,7 +35,7 @@ actor Diarizer {
         }
 
         let segments = result.segments.sorted { $0.startTimeSeconds < $1.startTimeSeconds }
-        logSummary(segments, for: fileURL)
+        logSummary(segments, config: config, for: fileURL)
 
         guard !segments.isEmpty else {
             logger.warning("No speech in \(fileURL.lastPathComponent, privacy: .public); remote collapses to Speaker 1")
@@ -62,16 +63,22 @@ actor Diarizer {
     }
 
     private static func configFromPreferences() -> OfflineDiarizerConfig {
-        OfflineDiarizerConfig(
+        let config = OfflineDiarizerConfig(
             clusteringThreshold: Preferences.diarizationClusteringThreshold,
             Fa: Preferences.diarizationSpeakerSensitivity,
+            Fb: Preferences.diarizationSpeakerRecall,
             segmentationStepRatio: Preferences.diarizationStepRatio,
-            minSegmentDuration: Preferences.diarizationMinSegmentDuration
+            minSegmentDuration: Preferences.diarizationMinSegmentDuration,
+            minGapDuration: Preferences.diarizationMinGapDuration,
+            exclusiveSegments: Preferences.diarizationExclusiveSegments
         )
+        // 0 is hark's "let FluidAudio decide" sentinel; only cap when the user sets a real limit.
+        let maxSpeakers = Preferences.diarizationMaxSpeakers
+        return maxSpeakers > 0 ? config.withSpeakers(max: maxSpeakers) : config
     }
 
     /// Logs a one-line diarization summary.
-    private func logSummary(_ segments: [TimedSpeakerSegment], for fileURL: URL) {
+    private func logSummary(_ segments: [TimedSpeakerSegment], config: OfflineDiarizerConfig, for fileURL: URL) {
         let speakers = Set(segments.map(\.speakerId)).count
         let speech = segments.reduce(Float(0)) { $0 + $1.durationSeconds }
         let qualities = segments.map(\.qualityScore)

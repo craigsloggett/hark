@@ -6,6 +6,7 @@ struct HarkApp: App {
 
     init() {
         Preferences.register()
+        Preferences.Launch.capture()
     }
 
     var body: some Scene {
