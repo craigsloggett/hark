@@ -5,8 +5,10 @@ import Testing
 /// Covers the `Voiceprint` sample schema: the duration-weighted centroid, the sample cap and its
 /// eviction order, and backward-compatible decoding of legacy single-centroid rows.
 struct VoiceprintTests {
-    private func sample(_ embedding: [Float], duration: Float, at enrolledAt: Date = .distantPast) -> VoiceSample {
-        VoiceSample(embedding: embedding, duration: duration, enrolledAt: enrolledAt)
+    private func sample(
+        _ embedding: [Float], duration: Float, at enrolledAt: Date = .distantPast, id: UUID = UUID()
+    ) -> VoiceSample {
+        VoiceSample(id: id, embedding: embedding, duration: duration, enrolledAt: enrolledAt)
     }
 
     @Test func singleSampleCentroidIsTheEmbeddingItself() {
@@ -44,7 +46,12 @@ struct VoiceprintTests {
         let voiceprint = try #require(voiceprints.first)
         #expect(voiceprint.id == "abc")
         #expect(voiceprint.name == nil)
-        #expect(voiceprint.samples == [sample([1, 2, 3], duration: 4, at: .distantPast)])
+        // The decoded sample carries a freshly minted id, so compare the carried fields, not equality.
+        let onlySample = try #require(voiceprint.samples.first)
+        #expect(voiceprint.samples.count == 1)
+        #expect(onlySample.embedding == [1, 2, 3])
+        #expect(onlySample.duration == 4)
+        #expect(onlySample.enrolledAt == .distantPast)
     }
 
     @Test func writeJSONRoundTripsTheSampleSchema() throws {
@@ -59,5 +66,20 @@ struct VoiceprintTests {
         try [voiceprint].writeJSON(to: url)
         let decoded = try JSONDecoder().decode([Voiceprint].self, from: Data(contentsOf: url))
         #expect(decoded == [voiceprint])
+        #expect(decoded.first?.samples.map(\.id) == voiceprint.samples.map(\.id)) // ids survive the round-trip
+    }
+
+    @Test func sampleWithoutIDDecodesToAFreshID() throws {
+        // Samples persisted before `id` existed lack the field; decode backfills one rather than throwing.
+        let json = Data("""
+        [{"embedding": [1, 2], "duration": 3, "enrolledAt": 0}]
+        """.utf8)
+        let decoded = try JSONDecoder().decode([VoiceSample].self, from: json)
+        let sample = try #require(decoded.first)
+        #expect(sample.embedding == [1, 2])
+        #expect(sample.duration == 3)
+        // A second decode mints a different id, proving the backfill is fresh rather than a fixed sentinel.
+        let again = try JSONDecoder().decode([VoiceSample].self, from: json)
+        #expect(again.first?.id != sample.id)
     }
 }

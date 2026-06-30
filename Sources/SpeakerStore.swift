@@ -10,11 +10,28 @@ struct SpeakerCluster {
 }
 
 /// One enrollment sample for a voiceprint, a diarized mean embedding with its speech duration and
-/// capture time.
-struct VoiceSample: Codable, Equatable {
+/// capture time. `id` addresses the sample stably across sessions; decode mints a fresh one for
+/// samples persisted before the field existed, mirroring the legacy `Voiceprint` tolerance below.
+struct VoiceSample: Codable, Equatable, Identifiable {
+    let id: UUID
     let embedding: [Float]
     let duration: Float
     let enrolledAt: Date
+
+    init(id: UUID, embedding: [Float], duration: Float, enrolledAt: Date) {
+        self.id = id
+        self.embedding = embedding
+        self.duration = duration
+        self.enrolledAt = enrolledAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        embedding = try container.decode([Float].self, forKey: .embedding)
+        duration = try container.decode(Float.self, forKey: .duration)
+        enrolledAt = try container.decode(Date.self, forKey: .enrolledAt)
+    }
 }
 
 /// A speaker's cross-session identity, backed by a capped list of enrollment samples. The vector
@@ -88,7 +105,7 @@ struct Voiceprint: Codable, Equatable {
             let duration = try legacy.decode(Float.self, forKey: .duration)
             self.init(
                 id: id, name: name,
-                samples: [VoiceSample(embedding: embedding, duration: duration, enrolledAt: .distantPast)]
+                samples: [VoiceSample(id: UUID(), embedding: embedding, duration: duration, enrolledAt: .distantPast)]
             )
         }
     }
@@ -113,12 +130,23 @@ struct SpeakerIdentity: Codable, Equatable {
 /// past a duration floor, keeping brief diarization fragments out of the database).
 actor SpeakerStore {
     private let directory: URL?
+    private let now: @Sendable () -> Date
+    private let uuid: @Sendable () -> UUID
     private let logger = Logger(category: "SpeakerStore")
 
-    /// - Parameter directory: where `voiceprints.json` lives (defaults to the sandbox container's
-    ///   `Application Support/Hark`).
-    init(directory: URL? = nil) {
+    /// - Parameters:
+    ///   - directory: where `voiceprints.json` lives (defaults to the sandbox container's
+    ///     `Application Support/Hark`).
+    ///   - now: enrollment-time source, injected so tests can pin `enrolledAt`.
+    ///   - uuid: id source for fresh voiceprints and samples, injected so tests can pin ids.
+    init(
+        directory: URL? = nil,
+        now: @escaping @Sendable () -> Date = Date.init,
+        uuid: @escaping @Sendable () -> UUID = UUID.init
+    ) {
         self.directory = directory
+        self.now = now
+        self.uuid = uuid
     }
 
     /// Resolves each cluster to a stable identity, enrolling and persisting new voiceprints.
@@ -183,9 +211,9 @@ actor SpeakerStore {
                 resolved[cluster.id] = SpeakerIdentity(id: match.id, name: byID[match.id]?.name)
             } else if cluster.duration >= enrollFloor {
                 let sample = VoiceSample(
-                    embedding: cluster.embedding, duration: cluster.duration, enrolledAt: Date()
+                    id: uuid(), embedding: cluster.embedding, duration: cluster.duration, enrolledAt: now()
                 )
-                let fresh = Voiceprint(id: UUID().uuidString, name: nil, samples: [sample])
+                let fresh = Voiceprint(id: uuid().uuidString, name: nil, samples: [sample])
                 enrolled.append(fresh)
                 claimed.insert(fresh.id)
                 resolved[cluster.id] = SpeakerIdentity(id: fresh.id, name: nil)
