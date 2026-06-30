@@ -10,30 +10,18 @@ struct SpeakerCluster {
 }
 
 /// One enrollment sample for a voiceprint, a diarized mean embedding with its speech duration and
-/// capture time. `id` addresses the sample stably across sessions (decode backfills a fresh one for
-/// rows persisted before the field existed, matching the legacy `Voiceprint` tolerance below).
-struct VoiceSample: Equatable, Identifiable {
+/// capture time. `id` addresses the sample stably across sessions.
+struct VoiceSample: Codable, Equatable, Identifiable {
     let id: UUID
     let embedding: [Float]
     let duration: Float
     let enrolledAt: Date
 }
 
-extension VoiceSample: Codable {
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        embedding = try container.decode([Float].self, forKey: .embedding)
-        duration = try container.decode(Float.self, forKey: .duration)
-        enrolledAt = try container.decode(Date.self, forKey: .enrolledAt)
-    }
-}
-
 /// A speaker's cross-session identity, backed by a capped list of enrollment samples. The vector
 /// matched against is the samples' duration-weighted `centroid`, derived when seeding the matcher
-/// rather than stored. Persisted as `{id, name, samples}` (a legacy `{id, name, embedding, duration}`
-/// row decodes to one sample).
-struct Voiceprint: Equatable {
+/// rather than stored. Persisted as `{id, name, samples}`.
+struct Voiceprint: Codable, Equatable {
     let id: String
     let name: String?
     let samples: [VoiceSample]
@@ -78,42 +66,6 @@ struct Voiceprint: Equatable {
     private static func capped(_ samples: [VoiceSample]) -> [VoiceSample] {
         guard samples.count > maxSamples else { return samples }
         return Array(samples.sorted { $0.enrolledAt < $1.enrolledAt }.suffix(maxSamples))
-    }
-}
-
-extension Voiceprint: Codable {
-    private enum CodingKeys: String, CodingKey {
-        case id, name, samples
-    }
-
-    private enum LegacyCodingKeys: String, CodingKey {
-        case embedding, duration
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let id = try container.decode(String.self, forKey: .id)
-        let name = try container.decodeIfPresent(String.self, forKey: .name)
-        if let samples = try container.decodeIfPresent([VoiceSample].self, forKey: .samples) {
-            self.init(id: id, name: name, samples: samples)
-        } else {
-            // Pre-samples rows lack samples and enrolledAt, so fold their single {embedding,
-            // duration} centroid into one sample dated distant-past.
-            let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
-            let embedding = try legacy.decode([Float].self, forKey: .embedding)
-            let duration = try legacy.decode(Float.self, forKey: .duration)
-            self.init(
-                id: id, name: name,
-                samples: [VoiceSample(id: UUID(), embedding: embedding, duration: duration, enrolledAt: .distantPast)]
-            )
-        }
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(name, forKey: .name)
-        try container.encode(samples, forKey: .samples)
     }
 }
 
