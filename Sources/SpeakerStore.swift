@@ -12,19 +12,14 @@ struct SpeakerCluster {
 /// One enrollment sample for a voiceprint, a diarized mean embedding with its speech duration and
 /// capture time. `id` addresses the sample stably across sessions (decode backfills a fresh one for
 /// rows persisted before the field existed, matching the legacy `Voiceprint` tolerance below).
-struct VoiceSample: Codable, Equatable, Identifiable {
+struct VoiceSample: Equatable, Identifiable {
     let id: UUID
     let embedding: [Float]
     let duration: Float
     let enrolledAt: Date
+}
 
-    init(id: UUID, embedding: [Float], duration: Float, enrolledAt: Date) {
-        self.id = id
-        self.embedding = embedding
-        self.duration = duration
-        self.enrolledAt = enrolledAt
-    }
-
+extension VoiceSample: Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
@@ -38,7 +33,7 @@ struct VoiceSample: Codable, Equatable, Identifiable {
 /// matched against is the samples' duration-weighted `centroid`, derived when seeding the matcher
 /// rather than stored. Persisted as `{id, name, samples}` (a legacy `{id, name, embedding, duration}`
 /// row decodes to one sample).
-struct Voiceprint: Codable, Equatable {
+struct Voiceprint: Equatable {
     let id: String
     let name: String?
     let samples: [VoiceSample]
@@ -84,7 +79,9 @@ struct Voiceprint: Codable, Equatable {
         guard samples.count > maxSamples else { return samples }
         return Array(samples.sorted { $0.enrolledAt < $1.enrolledAt }.suffix(maxSamples))
     }
+}
 
+extension Voiceprint: Codable {
     private enum CodingKeys: String, CodingKey {
         case id, name, samples
     }
@@ -202,8 +199,11 @@ actor SpeakerStore {
         var enrolled: [Voiceprint] = []
         var resolved: [String: SpeakerIdentity] = [:]
 
-        // Longest-speaking cluster claims a contested identity first (later claimants enroll fresh).
-        for cluster in clusters.sorted(by: { $0.duration > $1.duration }) {
+        // Longest-speaking cluster claims a contested identity first; id breaks ties so the claim
+        // order is deterministic (later claimants enroll fresh).
+        for cluster in clusters.sorted(by: {
+            $0.duration != $1.duration ? $0.duration > $1.duration : $0.id < $1.id
+        }) {
             guard cluster.embedding.count == SpeakerManager.embeddingSize else { continue }
             let matches = snapshot.findMatchingSpeakers(with: cluster.embedding, speakerThreshold: threshold)
             // matches is nearest-first so the first unclaimed match is the closest identity still

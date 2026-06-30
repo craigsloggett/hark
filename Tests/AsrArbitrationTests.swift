@@ -23,6 +23,17 @@ struct AsrArbitrationTests {
         // Reflects the value the driver wrote before launching this process.
         let mode = Preferences.asrDualDecodeArbitration ? "on" : "off"
 
+        // resolve() enrolls into the real voiceprint DB, so snapshot and restore it around the run.
+        let voiceprints = try Self.voiceprintsURL()
+        let voiceprintSnapshot = try? Data(contentsOf: voiceprints)
+        defer {
+            if let voiceprintSnapshot {
+                try? voiceprintSnapshot.write(to: voiceprints, options: .atomic)
+            } else {
+                try? FileManager.default.removeItem(at: voiceprints)
+            }
+        }
+
         let start = Date()
         let transcript = try await TranscriptionService().transcribeSession(at: sessionURL).transcript
         let elapsed = Date().timeIntervalSince(start)
@@ -36,5 +47,11 @@ struct AsrArbitrationTests {
         let words = transcript.segments.reduce(0) { $0 + $1.text.split(whereSeparator: \.isWhitespace).count }
         print("ASR-AB \(mode): \(transcript.segments.count) segments, \(words) words, processed in \(Int(elapsed))s")
         #expect(!transcript.segments.isEmpty)
+    }
+
+    private static func voiceprintsURL() throws -> URL {
+        try FileManager.default
+            .url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+            .appendingPathComponent("Hark/voiceprints.json")
     }
 }
