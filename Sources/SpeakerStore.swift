@@ -9,8 +9,8 @@ struct SpeakerCluster {
     let duration: Float
 }
 
-/// One enrollment sample for a voiceprint: a diarized mean embedding, its speech duration (the
-/// centroid's weight), and when it was captured (the cap's eviction key).
+/// One enrollment sample for a voiceprint, a diarized mean embedding with its speech duration and
+/// capture time.
 struct VoiceSample: Codable, Equatable {
     let embedding: [Float]
     let duration: Float
@@ -19,14 +19,14 @@ struct VoiceSample: Codable, Equatable {
 
 /// A speaker's cross-session identity, backed by a capped list of enrollment samples. The vector
 /// matched against is the samples' duration-weighted `centroid`, derived when seeding the matcher
-/// rather than stored, so adaptation can append samples later without a schema migration. Persisted
-/// as `{id, name, samples}`; a legacy `{id, name, embedding, duration}` row decodes to one sample.
+/// rather than stored. Persisted as `{id, name, samples}` (a legacy `{id, name, embedding, duration}`
+/// row decodes to one sample).
 struct Voiceprint: Codable, Equatable {
     let id: String
     let name: String?
     let samples: [VoiceSample]
 
-    /// Newest samples kept per voiceprint; enrolling past this evicts the oldest, bounding the database.
+    /// Cap on samples per voiceprint. The initializer keeps the newest this many.
     static let maxSamples = 5
 
     init(id: String, name: String?, samples: [VoiceSample]) {
@@ -36,7 +36,7 @@ struct Voiceprint: Codable, Equatable {
     }
 
     /// The samples' duration-weighted mean embedding, the vector matched against. A single-sample
-    /// print returns that embedding unchanged, so enrollment matches identically to a stored centroid.
+    /// print returns that embedding unchanged.
     var centroid: [Float] {
         guard let first = samples.first else { return [] }
         guard samples.count > 1 else { return first.embedding }
@@ -60,7 +60,7 @@ struct Voiceprint: Codable, Equatable {
         samples.reduce(0) { $0 + $1.duration }
     }
 
-    /// The newest `maxSamples` by enrollment time, dropping the oldest; a no-op at or under the cap.
+    /// The newest `maxSamples` by enrollment time, dropping the oldest (a no-op at or under the cap).
     private static func capped(_ samples: [VoiceSample]) -> [VoiceSample] {
         guard samples.count > maxSamples else { return samples }
         return Array(samples.sorted { $0.enrolledAt < $1.enrolledAt }.suffix(maxSamples))
@@ -81,8 +81,8 @@ struct Voiceprint: Codable, Equatable {
         if let samples = try container.decodeIfPresent([VoiceSample].self, forKey: .samples) {
             self.init(id: id, name: name, samples: samples)
         } else {
-            // Pre-samples row: fold the single {embedding, duration} centroid into one sample. The
-            // distant-past date sorts it oldest, so it is first to evict once adaptation appends.
+            // Pre-samples rows lack samples and enrolledAt, so fold their single {embedding,
+            // duration} centroid into one sample dated distant-past.
             let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
             let embedding = try legacy.decode([Float].self, forKey: .embedding)
             let duration = try legacy.decode(Float.self, forKey: .duration)
