@@ -93,7 +93,8 @@ final class SpeakerStoreTests {
         let url = directory.appendingPathComponent("voiceprints.json")
         let voiceprints = try JSONDecoder().decode([Voiceprint].self, from: Data(contentsOf: url))
         #expect(voiceprints.count == 1)
-        #expect(voiceprints.first?.embedding.count == SpeakerManager.embeddingSize)
+        #expect(voiceprints.first?.samples.count == 1)
+        #expect(voiceprints.first?.samples.first?.embedding.count == SpeakerManager.embeddingSize)
         #expect(voiceprints.first?.name == nil)
     }
 }
