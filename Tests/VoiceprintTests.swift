@@ -70,7 +70,7 @@ struct VoiceprintTests {
     }
 
     @Test func sampleWithoutIDDecodesToAFreshID() throws {
-        // Samples persisted before `id` existed lack the field; decode backfills one rather than throwing.
+        // Samples persisted before `id` existed lack the field (decode backfills one rather than throwing).
         let json = Data("""
         [{"embedding": [1, 2], "duration": 3, "enrolledAt": 0}]
         """.utf8)

@@ -10,8 +10,8 @@ struct SpeakerCluster {
 }
 
 /// One enrollment sample for a voiceprint, a diarized mean embedding with its speech duration and
-/// capture time. `id` addresses the sample stably across sessions; decode mints a fresh one for
-/// samples persisted before the field existed, mirroring the legacy `Voiceprint` tolerance below.
+/// capture time. `id` addresses the sample stably across sessions (decode backfills a fresh one for
+/// rows persisted before the field existed, matching the legacy `Voiceprint` tolerance below).
 struct VoiceSample: Codable, Equatable, Identifiable {
     let id: UUID
     let embedding: [Float]
