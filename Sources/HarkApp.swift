@@ -25,6 +25,7 @@ struct HarkApp: App {
         // app on macOS 26). Suppressed so it never opens at launch.
         Window("Hark Settings", id: SettingsWindow.id) {
             SettingsView()
+                .environment(recorder)
         }
         .defaultLaunchBehavior(.suppressed)
         .windowResizability(.contentSize)

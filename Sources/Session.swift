@@ -25,4 +25,16 @@ struct Session {
     var speakers: URL {
         url.appendingPathComponent("speakers.json")
     }
+
+    /// The `speakers.json` overlay keyed by speaker token, or empty when the session has none (a
+    /// mic-only recording never writes it).
+    func loadSpeakers() throws -> [String: SpeakerIdentity] {
+        guard FileManager.default.fileExists(atPath: speakers.path) else { return [:] }
+        return try JSONDecoder().decode([String: SpeakerIdentity].self, from: Data(contentsOf: speakers))
+    }
+
+    /// Writes the `speakers.json` overlay, used when the naming UI updates a past session's names.
+    func writeSpeakers(_ overlay: [String: SpeakerIdentity]) throws {
+        try overlay.writeJSON(to: speakers)
+    }
 }

@@ -36,6 +36,12 @@ struct MenuBarContent: View {
         }
         .disabled(recorder.lastSessionURL == nil)
 
+        Button("Name Speakers…") {
+            SettingsPresenter.shared.tab = .voices
+            showSettings()
+        }
+        .disabled(recorder.lastSessionURL == nil)
+
         Divider()
 
         Button("Settings…") {

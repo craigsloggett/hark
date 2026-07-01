@@ -132,4 +132,51 @@ final class SpeakerStoreTests {
         #expect(voiceprint.id == deterministicUUID(2).uuidString)
         #expect(onlySample.enrolledAt == enrolledAt)
     }
+
+    // MARK: Naming
+
+    @Test func renameSetsThenClearsName() async throws {
+        let store = SpeakerStore(directory: directory)
+        let enrolled = await store.resolve([SpeakerCluster(id: "S1", embedding: embedding([1]), duration: 10)])
+        let id = try #require(enrolled["S1"]?.id)
+
+        try await store.rename(id: id, to: "Ada")
+        let named = try await store.voiceprints()
+        #expect(named.first?.name == "Ada")
+
+        // Whitespace-only clears the name back to unnamed.
+        try await store.rename(id: id, to: "   ")
+        let cleared = try await store.voiceprints()
+        #expect(cleared.first?.name == nil)
+    }
+
+    @Test func renameIgnoresUnknownID() async throws {
+        let store = SpeakerStore(directory: directory)
+        _ = await store.resolve([SpeakerCluster(id: "S1", embedding: embedding([1]), duration: 10)])
+        try await store.rename(id: "not-a-real-id", to: "Ghost")
+        let voiceprints = try await store.voiceprints()
+        #expect(voiceprints.allSatisfy { $0.name == nil })
+    }
+
+    @Test func removeForgetsVoiceprint() async throws {
+        let store = SpeakerStore(directory: directory)
+        let enrolled = await store.resolve([SpeakerCluster(id: "S1", embedding: embedding([1]), duration: 10)])
+        let id = try #require(enrolled["S1"]?.id)
+
+        try await store.remove(id: id)
+        let remaining = try await store.voiceprints()
+        #expect(remaining.isEmpty)
+    }
+
+    @Test func namePersistsForTheNextSession() async throws {
+        let first = SpeakerStore(directory: directory)
+        let enrolled = await first.resolve([SpeakerCluster(id: "S1", embedding: embedding([1]), duration: 12)])
+        let id = try #require(enrolled["S1"]?.id)
+        try await first.rename(id: id, to: "Ada")
+
+        // A fresh store matching the same voice carries the name into the resolved identity.
+        let second = SpeakerStore(directory: directory)
+        let matched = await second.resolve([SpeakerCluster(id: "S1", embedding: embedding([1, 0.02]), duration: 8)])
+        #expect(matched["S1"]?.name == "Ada")
+    }
 }

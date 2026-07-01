@@ -18,6 +18,19 @@ enum Speaker: Equatable {
         case let .remote(index): "speaker\(index)"
         }
     }
+
+    /// The inverse of `token`; `nil` for any string that isn't a recognized speaker token.
+    init?(token: String) {
+        if token == "you" {
+            self = .you
+            return
+        }
+        let prefix = "speaker"
+        guard token.hasPrefix(prefix), let index = Int(token.dropFirst(prefix.count)), index >= 1 else {
+            return nil
+        }
+        self = .remote(index)
+    }
 }
 
 extension Speaker: Codable {
@@ -32,15 +45,10 @@ extension Speaker: Codable {
 
     init(from decoder: Decoder) throws {
         let token = try decoder.singleValueContainer().decode(String.self)
-        if token == "you" {
-            self = .you
-            return
-        }
-        let prefix = "speaker"
-        guard token.hasPrefix(prefix), let index = Int(token.dropFirst(prefix.count)), index >= 1 else {
+        guard let speaker = Speaker(token: token) else {
             throw DecodingFailure.unrecognizedToken(token)
         }
-        self = .remote(index)
+        self = speaker
     }
 }
 
@@ -66,9 +74,14 @@ extension [TranscriptSegment] {
 struct Transcript: Equatable {
     let segments: [TranscriptSegment]
 
-    func plainText() -> String {
+    /// - Parameter names: display names keyed by speaker token, preferred over the positional label
+    ///   so a named voice reads as "Alice" instead of "Speaker 1".
+    func plainText(names: [String: String] = [:]) -> String {
         segments
-            .map { "[\(Self.timestamp($0.start))] \($0.speaker.label): \($0.text)" }
+            .map { segment in
+                let label = names[segment.speaker.token] ?? segment.speaker.label
+                return "[\(Self.timestamp(segment.start))] \(label): \(segment.text)"
+            }
             .joined(separator: "\n")
     }
 

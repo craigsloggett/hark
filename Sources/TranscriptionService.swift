@@ -28,7 +28,13 @@ struct Transcription {
 struct TranscriptionService {
     private let transcriber = Transcriber()
     private let diarizer = Diarizer()
-    private let speakerStore = SpeakerStore()
+    private let speakerStore: SpeakerStore
+
+    /// - Parameter speakerStore: defaults to the shared store so enrollment and the naming UI write
+    ///   the same database; tests inject a temp-directory store.
+    init(speakerStore: SpeakerStore = .shared) {
+        self.speakerStore = speakerStore
+    }
 
     /// Transcribes `mic.wav` as "You" and `system.wav` as the diarized remote speakers, resolves
     /// their cross-session identities, and merges both onto one timeline.
@@ -67,16 +73,31 @@ struct TranscriptionService {
     }
 
     /// Writes `transcript.txt`, `transcript.json`, and `speakers.json` (when there are remote speakers).
+    /// Named voices render into the text so a session recorded after naming shows names right away.
     /// - Returns: the URL of `transcript.txt`.
     func write(_ transcription: Transcription, to sessionURL: URL) throws -> URL {
         let session = Session(url: sessionURL)
         let transcript = transcription.transcript
-        try (transcript.plainText() + "\n").write(to: session.transcriptText, atomically: true, encoding: .utf8)
+        let text = transcript.plainText(names: transcription.speakers.names) + "\n"
+        try text.write(to: session.transcriptText, atomically: true, encoding: .utf8)
         try transcript.segments.writeJSON(to: session.transcriptJSON)
         if !transcription.speakers.isEmpty {
             try transcription.speakers.writeJSON(to: session.speakers)
         }
         return session.transcriptText
+    }
+
+    /// Rewrites `transcript.txt` from the stored positional segments and the session's current
+    /// `speakers.json` names, so naming a speaker updates that session's transcript in place without
+    /// re-transcribing. The positional `transcript.json` is left untouched.
+    static func rerenderTranscript(at sessionURL: URL) throws {
+        let session = Session(url: sessionURL)
+        let segments = try JSONDecoder().decode(
+            [TranscriptSegment].self, from: Data(contentsOf: session.transcriptJSON)
+        )
+        let names = try session.loadSpeakers().names
+        let text = Transcript(segments: segments).plainText(names: names) + "\n"
+        try text.write(to: session.transcriptText, atomically: true, encoding: .utf8)
     }
 
     /// Resolves each diarized speaker's embedding to an identity, keyed by on-disk token to align

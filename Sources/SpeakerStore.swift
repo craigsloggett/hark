@@ -62,6 +62,11 @@ struct Voiceprint: Codable, Equatable {
         samples.reduce(0) { $0 + $1.duration }
     }
 
+    /// When the newest sample was enrolled, the closest thing to "last heard" for the naming UI.
+    var lastEnrolledAt: Date? {
+        samples.map(\.enrolledAt).max()
+    }
+
     /// The newest `maxSamples` by enrollment time, dropping the oldest (a no-op at or under the cap).
     private static func capped(_ samples: [VoiceSample]) -> [VoiceSample] {
         guard samples.count > maxSamples else { return samples }
@@ -69,10 +74,20 @@ struct Voiceprint: Codable, Equatable {
     }
 }
 
+extension Voiceprint: Identifiable {}
+
 /// A session speaker's resolved identity (`name` is `nil` until the voiceprint is named).
 struct SpeakerIdentity: Codable, Equatable {
     let id: String
     let name: String?
+}
+
+extension [String: SpeakerIdentity] {
+    /// Display names keyed by speaker token, dropping the still-unnamed speakers. Feeds
+    /// `Transcript.plainText(names:)`.
+    var names: [String: String] {
+        compactMapValues(\.name)
+    }
 }
 
 /// Matches each session's diarized speakers against a persisted voiceprint database so a recurring
@@ -80,6 +95,10 @@ struct SpeakerIdentity: Codable, Equatable {
 /// snapshot, so two voices in one meeting can't collapse together (unmatched speakers enroll only
 /// past a duration floor, keeping brief diarization fragments out of the database).
 actor SpeakerStore {
+    /// The process-wide store. The naming UI and the transcription pipeline share one instance so
+    /// their writes to `voiceprints.json` serialize through a single actor.
+    static let shared = SpeakerStore()
+
     private let directory: URL?
     private let now: @Sendable () -> Date
     private let uuid: @Sendable () -> UUID
@@ -133,6 +152,35 @@ actor SpeakerStore {
         }
         return resolved
     }
+
+    // MARK: Editing
+
+    /// Every saved voiceprint, for the naming UI to list. Throws only when the file exists but
+    /// can't be decoded (an absent file is an empty database).
+    func voiceprints() throws -> [Voiceprint] {
+        try load()
+    }
+
+    /// Sets (or clears) a voiceprint's name. Whitespace-only names clear it back to unnamed. A
+    /// missing `id` is a no-op so the caller doesn't have to guard against a since-deleted voice.
+    func rename(id: String, to name: String?) throws {
+        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = (trimmed?.isEmpty ?? true) ? nil : trimmed
+        var voiceprints = try load()
+        guard let index = voiceprints.firstIndex(where: { $0.id == id }) else { return }
+        let existing = voiceprints[index]
+        voiceprints[index] = Voiceprint(id: existing.id, name: normalized, samples: existing.samples)
+        try save(voiceprints)
+    }
+
+    /// Removes a voiceprint so a stray or misheard voice can be forgotten.
+    func remove(id: String) throws {
+        let voiceprints = try load()
+        guard voiceprints.contains(where: { $0.id == id }) else { return }
+        try save(voiceprints.filter { $0.id != id })
+    }
+
+    // MARK: Matching
 
     /// Matches each cluster against the frozen snapshot and decides enrollments, without persisting.
     private func assign(
