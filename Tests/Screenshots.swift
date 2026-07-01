@@ -40,6 +40,8 @@ struct ScreenshotRenderer {
                  view: AnyView(popover(token: "speaker1", model: model))),
             Shot(name: "Popover-Label", size: CGSize(width: 300, height: 360),
                  view: AnyView(popover(token: "speaker3", model: model))),
+            Shot(name: "Popover-NoSample", size: CGSize(width: 300, height: 340),
+                 view: AnyView(popover(token: "speaker4", model: model))),
         ]
     }
 
@@ -74,6 +76,8 @@ struct ScreenshotRenderer {
             ),
             "speaker2": SessionSpeaker(embedding: embedding, duration: 18),
             "speaker3": SessionSpeaker(nameOverride: "Guest", embedding: embedding, duration: 12),
+            // A legacy speaker with no saved voice sample: naming can only label the transcript.
+            "speaker4": SessionSpeaker(duration: 8),
         ]
         let detail = SessionDetail(
             url: URL(fileURLWithPath: "/tmp/hark-preview"), segments: segments, overlay: overlay

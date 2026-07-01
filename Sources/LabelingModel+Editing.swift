@@ -43,7 +43,8 @@ extension LabelingModel {
     }
 
     /// Names an unlabeled speaker: renames the bound voiceprint if one exists (enrollment identity),
-    /// otherwise enrolls a new voiceprint from the stored centroid.
+    /// enrolls a new voiceprint from the stored centroid when there is one, or, for a recording with no
+    /// saved voice sample, falls back to a transcript-only label so the action is never a silent no-op.
     func nameSpeaker(token: String, to name: String) async {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, var detail else { return }
@@ -52,8 +53,10 @@ extension LabelingModel {
             try? await SpeakerStore.shared.rename(id: id, to: trimmed)
             detail.overlay[token]?.confirmed = true
             await apply(detail, reloadDatabase: true)
-        } else {
+        } else if canEnroll(token: token) {
             await enrollAndBind(token: token, name: trimmed, undoLabel: "Name Voice")
+        } else {
+            await renameOverride(token: token, to: trimmed)
         }
     }
 

@@ -26,11 +26,20 @@ struct SpeakerPopover: View {
     private func content(for binding: SpeakerBinding, tentative: Bool) -> some View {
         switch binding {
         case .unknown:
-            nameField(
-                title: "Name this voice",
-                placeholder: "e.g. Priya, Marcus",
-                footnote: "Saves this voice so Hark recognizes it in other recordings."
-            ) { await model.nameSpeaker(token: token, to: draft) }
+            if model.canEnroll(token: token) {
+                nameField(
+                    title: "Name this voice",
+                    placeholder: "e.g. Priya, Marcus",
+                    footnote: "Saves this voice so Hark recognizes it in other recordings."
+                ) { await model.nameSpeaker(token: token, to: draft) }
+            } else {
+                nameField(
+                    title: "Label this speaker",
+                    placeholder: "e.g. Chris",
+                    footnote: "Shows this name in this transcript. This recording has no saved voice "
+                        + "sample, so Hark can't learn the voice for other recordings."
+                ) { await model.renameOverride(token: token, to: draft) }
+            }
             knownList(title: "Someone you know")
             addNewButton
         case .localLabel:
@@ -117,11 +126,15 @@ struct SpeakerPopover: View {
         }
     }
 
+    /// Only offered when there is a voice sample to enroll; otherwise the field above labels the
+    /// transcript and a disabled button here would just puzzle the user.
+    @ViewBuilder
     private var addNewButton: some View {
-        Button("Add as a new voice") {
-            submit { await model.addNewVoice(token: token, name: draft.isEmpty ? nil : draft) }
+        if model.canEnroll(token: token) {
+            Button("Add as a new voice") {
+                submit { await model.addNewVoice(token: token, name: draft.isEmpty ? nil : draft) }
+            }
         }
-        .disabled(!model.canEnroll(token: token))
     }
 
     private func nameField(
