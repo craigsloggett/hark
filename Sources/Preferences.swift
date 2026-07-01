@@ -71,7 +71,7 @@ enum Preferences {
         }
 
         /// Trim overlapping speech so only one speaker is active at a time.
-        static var diarizationExclusiveSegments: Bool {
+        static var diarizationUsesExclusiveSegments: Bool {
             OfflineDiarizerConfig.PostProcessing.community.exclusiveSegments
         }
 
@@ -84,7 +84,7 @@ enum Preferences {
         static let voiceprintMaxSamples = 5
 
         /// Parakeet's three-strategy decode probe: better accuracy at roughly 1.1-1.5x cost.
-        static var asrDualDecodeArbitration: Bool {
+        static var asrUsesDualDecodeArbitration: Bool {
             ASRConfig().dualDecodeArbitration
         }
 
@@ -104,12 +104,12 @@ enum Preferences {
             Key.diarizationStepRatio: Default.diarizationStepRatio,
             Key.diarizationMinSegmentDuration: Default.diarizationMinSegmentDuration,
             Key.diarizationMinGapDuration: Default.diarizationMinGapDuration,
-            Key.diarizationExclusiveSegments: Default.diarizationExclusiveSegments,
+            Key.diarizationExclusiveSegments: Default.diarizationUsesExclusiveSegments,
             Key.diarizationMaxSpeakers: Default.diarizationMaxSpeakers,
             Key.speakerMatchThreshold: Default.speakerMatchThreshold,
             Key.speakerMinEnrollmentDuration: Default.speakerMinEnrollmentDuration,
             Key.voiceprintMaxSamples: Default.voiceprintMaxSamples,
-            Key.asrDualDecodeArbitration: Default.asrDualDecodeArbitration,
+            Key.asrDualDecodeArbitration: Default.asrUsesDualDecodeArbitration,
             Key.asrParallelChunkConcurrency: Default.asrParallelChunkConcurrency,
             Key.utteranceGap: Default.utteranceGap,
         ])
@@ -139,8 +139,8 @@ enum Preferences {
         resolved(Key.diarizationMinGapDuration, default: Default.diarizationMinGapDuration)
     }
 
-    static var diarizationExclusiveSegments: Bool {
-        resolved(Key.diarizationExclusiveSegments, default: Default.diarizationExclusiveSegments)
+    static var diarizationUsesExclusiveSegments: Bool {
+        resolved(Key.diarizationExclusiveSegments, default: Default.diarizationUsesExclusiveSegments)
     }
 
     static var diarizationMaxSpeakers: Int {
@@ -159,8 +159,8 @@ enum Preferences {
         resolved(Key.voiceprintMaxSamples, default: Default.voiceprintMaxSamples)
     }
 
-    static var asrDualDecodeArbitration: Bool {
-        resolved(Key.asrDualDecodeArbitration, default: Default.asrDualDecodeArbitration)
+    static var asrUsesDualDecodeArbitration: Bool {
+        resolved(Key.asrDualDecodeArbitration, default: Default.asrUsesDualDecodeArbitration)
     }
 
     static var asrParallelChunkConcurrency: Int {
@@ -209,11 +209,11 @@ extension Preferences {
     /// against these to flag a change that won't apply until Hark restarts. The `static let`s snapshot
     /// on first access, so `capture()` must run at launch, before any setting can change.
     enum Launch {
-        static let asrDualDecodeArbitration = Preferences.asrDualDecodeArbitration
+        static let asrUsesDualDecodeArbitration = Preferences.asrUsesDualDecodeArbitration
         static let asrParallelChunkConcurrency = Preferences.asrParallelChunkConcurrency
 
         static func capture() {
-            _ = asrDualDecodeArbitration
+            _ = asrUsesDualDecodeArbitration
             _ = asrParallelChunkConcurrency
         }
     }

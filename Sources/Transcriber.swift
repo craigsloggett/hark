@@ -53,7 +53,7 @@ actor Transcriber {
             let models = try await AsrModels.downloadAndLoad(version: .v3)
             let config = ASRConfig(
                 parallelChunkConcurrency: Preferences.asrParallelChunkConcurrency,
-                dualDecodeArbitration: Preferences.asrDualDecodeArbitration
+                dualDecodeArbitration: Preferences.asrUsesDualDecodeArbitration
             )
             let loaded = AsrManager(config: config, models: models)
             manager = loaded

@@ -30,7 +30,7 @@ struct AdvancedSettingsView: View {
     private var minGapDuration = Preferences.Default.diarizationMinGapDuration
 
     @AppStorage(Preferences.Key.diarizationExclusiveSegments)
-    private var exclusiveSegments = Preferences.Default.diarizationExclusiveSegments
+    private var usesExclusiveSegments = Preferences.Default.diarizationUsesExclusiveSegments
 
     @AppStorage(Preferences.Key.diarizationMaxSpeakers)
     private var maxSpeakers = Preferences.Default.diarizationMaxSpeakers
@@ -39,7 +39,7 @@ struct AdvancedSettingsView: View {
     private var utteranceGap = Preferences.Default.utteranceGap
 
     @AppStorage(Preferences.Key.asrDualDecodeArbitration)
-    private var dualDecodeArbitration = Preferences.Default.asrDualDecodeArbitration
+    private var usesDualDecodeArbitration = Preferences.Default.asrUsesDualDecodeArbitration
 
     @AppStorage(Preferences.Key.asrParallelChunkConcurrency)
     private var parallelChunkConcurrency = Preferences.Default.asrParallelChunkConcurrency
@@ -56,13 +56,13 @@ struct AdvancedSettingsView: View {
             }
 
             Section("Saved voices") {
-                tuningRow(
+                sliderRow(
                     "Matching a known voice",
                     value: $speakerMatchThreshold, range: 0.1 ... 1.5, step: 0.05,
                     help: "Lower is stricter about matching this session's speakers to voices Hark has "
                         + "saved before, so it reuses a saved voice less readily."
                 )
-                tuningRow(
+                sliderRow(
                     "Speech needed to remember a voice",
                     value: $speakerMinEnrollmentDuration, range: 0.0 ... 10.0, step: 0.5, unit: "s",
                     help: "How long someone must speak before Hark saves their voice to recognise next time."
@@ -76,37 +76,37 @@ struct AdvancedSettingsView: View {
             }
 
             Section("Telling speakers apart") {
-                tuningRow(
+                sliderRow(
                     "Telling voices apart",
                     value: $clusteringThreshold, range: 0.1 ... 1.0, step: 0.01,
                     help: "Higher makes Hark treat similar-sounding voices as separate people, "
                         + "so it tends to find more speakers."
                 )
-                tuningRow(
+                sliderRow(
                     "Number of speakers",
                     value: $speakerSensitivity, range: 0.01 ... 0.5, step: 0.01,
                     help: "Nudges the speaker count: higher tends to find more speakers, "
                         + "lower merges similar voices into fewer."
                 )
-                tuningRow(
+                sliderRow(
                     "Keeping a voice together",
                     value: $speakerRecall, range: 0.1 ... 2.0, step: 0.05,
                     help: "Higher keeps borderline moments with the same speaker instead of "
                         + "splitting them onto another."
                 )
-                tuningRow(
+                sliderRow(
                     "Speaker change accuracy",
                     value: $stepRatio, range: 0.01 ... 1.0, step: 0.01,
                     help: "Lower pinpoints where one speaker stops and another starts more precisely, "
                         + "though transcribing takes a little longer."
                 )
-                tuningRow(
+                sliderRow(
                     "Shortest spoken turn",
                     value: $minSegmentDuration, range: 0.0 ... 5.0, step: 0.1, unit: "s",
                     help: "The shortest moment of speech Hark assigns to a speaker. Lower captures "
                         + "quick remarks; higher ignores them."
                 )
-                tuningRow(
+                sliderRow(
                     "Bridging short pauses",
                     value: $minGapDuration, range: 0.0 ... 1.0, step: 0.05, unit: "s",
                     help: "Silences shorter than this stay within one speaker's turn instead of "
@@ -114,7 +114,7 @@ struct AdvancedSettingsView: View {
                 )
                 toggleRow(
                     "One speaker at a time",
-                    value: $exclusiveSegments,
+                    value: $usesExclusiveSegments,
                     help: "When two voices overlap, attribute each moment to a single speaker."
                 )
                 stepperRow(
@@ -127,7 +127,7 @@ struct AdvancedSettingsView: View {
             }
 
             Section("Transcription") {
-                tuningRow(
+                sliderRow(
                     "Pause before a new line",
                     value: $utteranceGap, range: 0.0 ... 2.0, step: 0.05, unit: "s",
                     help: "How long a silence Hark waits through before starting a new line in the transcript."
@@ -137,7 +137,7 @@ struct AdvancedSettingsView: View {
             Section {
                 toggleRow(
                     "Higher-accuracy transcription",
-                    value: $dualDecodeArbitration,
+                    value: $usesDualDecodeArbitration,
                     help: "Tries several decoding strategies for better wording, at a little more time."
                 )
                 stepperRow(
@@ -170,7 +170,7 @@ struct AdvancedSettingsView: View {
 
     // MARK: Rows
 
-    private func tuningRow(
+    private func sliderRow(
         _ title: String,
         value: Binding<Double>,
         range: ClosedRange<Double>,
@@ -233,7 +233,7 @@ struct AdvancedSettingsView: View {
 
     /// True when a restart-scoped setting differs from the value the running engine loaded at launch.
     private var restartPending: Bool {
-        dualDecodeArbitration != Preferences.Launch.asrDualDecodeArbitration
+        usesDualDecodeArbitration != Preferences.Launch.asrUsesDualDecodeArbitration
             || parallelChunkConcurrency != Preferences.Launch.asrParallelChunkConcurrency
     }
 
@@ -247,10 +247,10 @@ struct AdvancedSettingsView: View {
         stepRatio = Preferences.Default.diarizationStepRatio
         minSegmentDuration = Preferences.Default.diarizationMinSegmentDuration
         minGapDuration = Preferences.Default.diarizationMinGapDuration
-        exclusiveSegments = Preferences.Default.diarizationExclusiveSegments
+        usesExclusiveSegments = Preferences.Default.diarizationUsesExclusiveSegments
         maxSpeakers = Preferences.Default.diarizationMaxSpeakers
         utteranceGap = Preferences.Default.utteranceGap
-        dualDecodeArbitration = Preferences.Default.asrDualDecodeArbitration
+        usesDualDecodeArbitration = Preferences.Default.asrUsesDualDecodeArbitration
         parallelChunkConcurrency = Preferences.Default.asrParallelChunkConcurrency
     }
 }

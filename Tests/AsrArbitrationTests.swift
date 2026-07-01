@@ -2,7 +2,7 @@ import Foundation
 @testable import hark
 import Testing
 
-/// Process-scoped A/B for the ASR dual-decode knob. `Transcriber` reads `asrDualDecodeArbitration`
+/// Process-scoped A/B for the ASR dual-decode knob. `Transcriber` reads `asrUsesDualDecodeArbitration`
 /// once when its `AsrManager` loads and caches the manager, so this knob can only be varied across
 /// separate processes. The driver runs this test twice (the pref written `NO` then `YES`) and the
 /// wording diff between `dualdecode-off.txt` and `dualdecode-on.txt` is the deliverable.
@@ -21,7 +21,7 @@ struct AsrArbitrationTests {
     func comparesDualDecode() async throws {
         let sessionURL = try #require(Self.target)
         // Reflects the value the driver wrote before launching this process.
-        let mode = Preferences.asrDualDecodeArbitration ? "on" : "off"
+        let mode = Preferences.asrUsesDualDecodeArbitration ? "on" : "off"
 
         // resolve() enrolls into the real voiceprint DB, so snapshot and restore it around the run.
         let voiceprints = try Self.voiceprintsURL()

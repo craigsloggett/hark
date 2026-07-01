@@ -70,7 +70,7 @@ actor Diarizer {
             segmentationStepRatio: Preferences.diarizationStepRatio,
             minSegmentDuration: Preferences.diarizationMinSegmentDuration,
             minGapDuration: Preferences.diarizationMinGapDuration,
-            exclusiveSegments: Preferences.diarizationExclusiveSegments
+            exclusiveSegments: Preferences.diarizationUsesExclusiveSegments
         )
         // 0 is hark's "let FluidAudio decide" sentinel; only cap when the user sets a real limit.
         let maxSpeakers = Preferences.diarizationMaxSpeakers

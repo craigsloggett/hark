@@ -56,16 +56,16 @@ struct FluidAudioContractTests {
             == Preferences.Default.diarizationMinGapDuration)
     }
 
-    @Test func diarizationExclusiveSegmentsDefaultIsUnchanged() {
+    @Test func diarizationUsesExclusiveSegmentsDefaultIsUnchanged() {
         #expect(OfflineDiarizerConfig.PostProcessing.community.exclusiveSegments == true)
         #expect(OfflineDiarizerConfig.PostProcessing.community.exclusiveSegments
-            == Preferences.Default.diarizationExclusiveSegments)
+            == Preferences.Default.diarizationUsesExclusiveSegments)
     }
 
     /// The ASR knobs defer to `ASRConfig`'s init defaults, also not exposed as constants.
     @Test func asrConfigDefaultsAreUnchanged() {
         #expect(ASRConfig().dualDecodeArbitration == false)
-        #expect(ASRConfig().dualDecodeArbitration == Preferences.Default.asrDualDecodeArbitration)
+        #expect(ASRConfig().dualDecodeArbitration == Preferences.Default.asrUsesDualDecodeArbitration)
         #expect(ASRConfig().parallelChunkConcurrency == 4)
         #expect(ASRConfig().parallelChunkConcurrency == Preferences.Default.asrParallelChunkConcurrency)
     }
