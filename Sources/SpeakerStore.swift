@@ -9,6 +9,13 @@ struct SpeakerCluster {
     let duration: Float
 }
 
+/// Two saved voices close enough to be likely duplicates, with the cosine distance between them.
+struct VoicePair {
+    let first: Voiceprint
+    let second: Voiceprint
+    let distance: Float
+}
+
 enum SpeakerStoreError: Error {
     case invalidEmbedding
     case unknownVoiceprint
@@ -188,6 +195,28 @@ actor SpeakerStore {
               let voiceprint = named.first(where: { $0.id == match.id })
         else { return nil }
         return (voiceprint, match.distance)
+    }
+
+    /// Unordered pairs of surviving voiceprints whose centroids are within `distance`, nearest first,
+    /// for surfacing likely duplicate voices to merge. Each pair appears once; self-pairs are excluded.
+    func duplicatePairs(within distance: Float) throws -> [VoicePair] {
+        let survivors = try load().filter {
+            $0.redirectID == nil && $0.centroid.count == SpeakerManager.embeddingSize
+        }
+        guard survivors.count > 1 else { return [] }
+        let snapshot = matcher(seededWith: survivors, threshold: 2)
+        let lookup = byID(survivors)
+        var pairs: [VoicePair] = []
+        var seen: Set<String> = []
+        for voiceprint in survivors {
+            let matches = snapshot.findMatchingSpeakers(with: voiceprint.centroid, speakerThreshold: distance)
+            for match in matches where match.id != voiceprint.id {
+                let key = [voiceprint.id, match.id].sorted().joined(separator: "|")
+                guard seen.insert(key).inserted, let other = lookup[match.id] else { continue }
+                pairs.append(VoicePair(first: voiceprint, second: other, distance: match.distance))
+            }
+        }
+        return pairs.sorted { $0.distance < $1.distance }
     }
 
     private func byID(_ voiceprints: [Voiceprint]) -> [String: Voiceprint] {

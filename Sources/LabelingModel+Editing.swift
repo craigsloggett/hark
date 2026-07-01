@@ -197,16 +197,21 @@ extension LabelingModel {
         await finishEdit(reloadDatabase: true)
     }
 
-    /// Forgets a saved voice. Speakers bound to it in this transcript fall back to positional; other
-    /// recordings do the same the next time they are opened.
+    /// Forgets a saved voice. Speakers bound to it in the loaded transcript fall back to positional;
+    /// other recordings do the same the next time they are opened. Works from the global manager too,
+    /// where no transcript is loaded.
     func forgetVoice(id: String) async {
-        guard var detail else { return }
         recordUndo("Forget Voice")
         try? await SpeakerStore.shared.remove(id: id)
+        peopleSelection = []
+        voicesSelection.remove(id)
+        guard var detail else {
+            await finishEdit(reloadDatabase: true)
+            return
+        }
         for (token, speaker) in detail.overlay where speaker.voiceprintID == id {
             detail.overlay[token]?.voiceprintID = nil
         }
-        peopleSelection = []
         await apply(detail, reloadDatabase: true)
     }
 
@@ -248,7 +253,7 @@ extension LabelingModel {
     }
 
     /// Chooses which voiceprint survives a merge: the named one, else the one with more samples.
-    private func canonicalMerge(_ first: String, _ second: String) -> (destination: String, source: String) {
+    func canonicalMerge(_ first: String, _ second: String) -> (destination: String, source: String) {
         let firstPrint = voiceprintsByID[first]
         let secondPrint = voiceprintsByID[second]
         if firstPrint?.name != nil, secondPrint?.name == nil { return (first, second) }

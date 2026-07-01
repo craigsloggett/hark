@@ -34,6 +34,10 @@ struct ScreenshotRenderer {
                  view: AnyView(TranscriptChatView(model: model))),
             Shot(name: "PeopleInspector", size: CGSize(width: 300, height: 440),
                  view: AnyView(PeopleInspectorView(model: model))),
+            Shot(name: "Voices", size: CGSize(width: 320, height: 480),
+                 view: AnyView(VoicesManagerView(model: model))),
+            Shot(name: "Voices-Empty", size: CGSize(width: 320, height: 400),
+                 view: AnyView(VoicesManagerView(model: LabelingModel()))),
             Shot(name: "Popover-Unidentified", size: CGSize(width: 300, height: 340),
                  view: AnyView(popover(token: "speaker2", model: model))),
             Shot(name: "Popover-SavedVoice", size: CGSize(width: 300, height: 420),
@@ -90,9 +94,17 @@ struct ScreenshotRenderer {
         let detail = SessionDetail(
             url: URL(fileURLWithPath: "/tmp/hark-preview"), segments: segments, overlay: overlay
         )
+        // Priya and the recognized-but-unnamed voice share an embedding, so they read as a likely
+        // duplicate in the Voices manager's suggestions band.
+        let suggestion = DuplicateSuggestion(
+            primary: VoiceSummary(id: "vp-priya", name: "Priya", sampleCount: 1, recordingCount: 4),
+            secondary: VoiceSummary(id: "vp-recognized", name: nil, sampleCount: 1, recordingCount: 2),
+            distance: 0.03
+        )
         return LabelingModel.preview(
             detail: detail, voiceprints: [priya, marcus, recognized],
-            usage: ["vp-priya": 4, "vp-marcus": 2, "vp-recognized": 2]
+            usage: ["vp-priya": 4, "vp-marcus": 2, "vp-recognized": 2],
+            suggestions: [suggestion]
         )
     }
 

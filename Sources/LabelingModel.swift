@@ -10,6 +10,12 @@ struct TurnGroup: Identifiable {
     var segments: [TranscriptSegment]
 }
 
+/// The recordings sidebar's selection: the global voices manager or one recording.
+enum SidebarItem: Hashable {
+    case voices
+    case session(URL)
+}
+
 /// The state hub for the labeling window: the session list, the loaded transcript and its editable
 /// speaker overlay, and a snapshot of the voiceprint database. Every edit (in `LabelingModel+Editing`)
 /// pushes an undo snapshot, mutates the overlay and/or `SpeakerStore`, then re-renders `transcript.txt`.
@@ -17,15 +23,31 @@ struct TurnGroup: Identifiable {
 @Observable
 final class LabelingModel {
     let library = SessionLibrary()
-    var selection: URL?
+    /// The sidebar's selection: the global voices view or one recording.
+    var sidebarSelection: SidebarItem?
     var peopleSelection: Set<String> = []
+    /// The voices selected in the global manager (by voiceprint id), for merging across recordings.
+    var voicesSelection: Set<String> = []
     private(set) var detail: SessionDetail?
     private(set) var voiceprintsByID: [String: Voiceprint] = [:]
     /// Surviving voiceprint id to the number of recordings it appears in, for the People inspector.
     private(set) var voiceUsage: [String: Int] = [:]
+    /// Near-identical saved voices offered for merging in the global manager.
+    private(set) var duplicateSuggestions: [DuplicateSuggestion] = []
     /// A duplicate a deliberate enroll would create: set instead of enrolling, so the UI can offer to
     /// reuse the existing voice. `nil` when no enroll is awaiting that choice.
     var pendingEnrollment: PendingEnrollment?
+
+    /// The loaded recording, derived from the sidebar selection (`nil` in the voices view).
+    var selection: URL? {
+        if case let .session(url) = sidebarSelection { return url }
+        return nil
+    }
+
+    /// Whether the sidebar is showing the global voices manager rather than a recording.
+    var showsVoices: Bool {
+        sidebarSelection == .voices
+    }
 
     // MARK: Undo
 
@@ -50,12 +72,12 @@ final class LabelingModel {
     }
 
     /// Snapshots the current state under `label` before an edit. Internal so the editing methods in the
-    /// sibling file record their own step.
+    /// sibling files record their own step. Works without a loaded session so global voice edits (which
+    /// touch only the database) are undoable too.
     func recordUndo(_ label: String) {
-        guard let detail else { return }
         undoStack.append(UndoSnapshot(
             label: label,
-            overlay: detail.overlay,
+            overlay: detail?.overlay ?? [:],
             voiceprints: Array(voiceprintsByID.values),
             peopleSelection: peopleSelection
         ))
@@ -72,10 +94,12 @@ final class LabelingModel {
     }
 
     func undo() async {
-        guard var detail, let snapshot = undoStack.popLast() else { return }
+        guard let snapshot = undoStack.popLast() else { return }
         try? await SpeakerStore.shared.replaceAll(snapshot.voiceprints)
-        detail.overlay = snapshot.overlay
-        self.detail = detail
+        if var detail {
+            detail.overlay = snapshot.overlay
+            self.detail = detail
+        }
         peopleSelection = snapshot.peopleSelection
         await finishEdit(reloadDatabase: true)
     }
@@ -89,18 +113,31 @@ final class LabelingModel {
 
     func loadSelected() async {
         peopleSelection = []
+        voicesSelection = []
         pendingEnrollment = nil
         undoStack = []
-        guard let selection else {
-            detail = nil
-            return
-        }
-        detail = try? library.loadDetail(selection)
+        detail = selection.flatMap { try? library.loadDetail($0) }
         refreshUsage()
+        await refreshDuplicateSuggestions()
     }
 
     private func refreshUsage() {
         voiceUsage = library.voiceUsage(resolving: voiceprintsByID)
+    }
+
+    /// Recomputes the global manager's near-identical voice pairs, keeping only those with at least one
+    /// named side (so there is a name to merge toward), the named side as the target. Here rather than
+    /// in the sibling file because it sets the `private(set)` list.
+    func refreshDuplicateSuggestions() async {
+        let threshold = Float(Preferences.speakerConfidentMatchThreshold)
+        let pairs = await (try? SpeakerStore.shared.duplicatePairs(within: threshold)) ?? []
+        duplicateSuggestions = pairs.compactMap { pair in
+            guard pair.first.name != nil || pair.second.name != nil else { return nil }
+            let first = summary(for: pair.first)
+            let second = summary(for: pair.second)
+            let (primary, secondary) = first.isNamed || !second.isNamed ? (first, second) : (second, first)
+            return DuplicateSuggestion(primary: primary, secondary: secondary, distance: pair.distance)
+        }
     }
 
     var currentTitle: String {
@@ -221,6 +258,9 @@ final class LabelingModel {
         }
         await persist()
         refreshUsage()
+        if reloadDatabase {
+            await refreshDuplicateSuggestions()
+        }
     }
 
     /// Writes the overlay and re-renders `transcript.txt` with the current voiceprint names.
@@ -239,7 +279,8 @@ final class LabelingModel {
         static func preview(
             detail: SessionDetail,
             voiceprints: [Voiceprint] = [],
-            usage: [String: Int] = [:]
+            usage: [String: Int] = [:],
+            suggestions: [DuplicateSuggestion] = []
         ) -> LabelingModel {
             let model = LabelingModel()
             model.detail = detail
@@ -247,6 +288,7 @@ final class LabelingModel {
                 voiceprints.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }
             )
             model.voiceUsage = usage
+            model.duplicateSuggestions = suggestions
             return model
         }
     }

@@ -12,39 +12,28 @@ struct SessionsBrowserView: View {
             SessionListView(model: model)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240)
         } detail: {
-            TranscriptChatView(model: model)
-                .inspector(isPresented: $showsPeople) {
-                    PeopleInspectorView(model: model)
-                        .inspectorColumnWidth(min: 220, ideal: 260, max: 340)
+            detailPane
+        }
+        .toolbar {
+            ToolbarItem {
+                Button {
+                    Task { await model.undo() }
+                } label: {
+                    Label("Undo", systemImage: "arrow.uturn.backward")
                 }
-                .toolbar {
-                    ToolbarItem {
-                        Button {
-                            Task { await model.undo() }
-                        } label: {
-                            Label("Undo", systemImage: "arrow.uturn.backward")
-                        }
-                        .disabled(!model.canUndo)
-                        .help(model.undoActionLabel ?? "Nothing to undo")
-                        .keyboardShortcut("z", modifiers: .command)
-                    }
-                    ToolbarItem {
-                        Button {
-                            showsPeople.toggle()
-                        } label: {
-                            Label("People", systemImage: "person.2")
-                        }
-                    }
-                }
+                .disabled(!model.canUndo)
+                .help(model.undoActionLabel ?? "Nothing to undo")
+                .keyboardShortcut("z", modifiers: .command)
+            }
         }
         .task {
             model.library.reload()
             await model.refreshVoiceprints()
-            if model.selection == nil {
-                model.selection = model.library.sessions.first?.url
+            if model.sidebarSelection == nil {
+                model.sidebarSelection = model.library.sessions.first.map { .session($0.url) }
             }
         }
-        .task(id: model.selection) {
+        .task(id: model.sidebarSelection) {
             await model.loadSelected()
         }
         // A finished transcription adds a new session, so refresh the list when one lands.
@@ -64,6 +53,29 @@ struct SessionsBrowserView: View {
             Button("Cancel", role: .cancel) {}
         } message: { pending in
             Text(pending.dialogMessage)
+        }
+    }
+
+    /// The right pane: the global voices manager, or the selected transcript with its People inspector.
+    @ViewBuilder
+    private var detailPane: some View {
+        if model.showsVoices {
+            VoicesManagerView(model: model)
+        } else {
+            TranscriptChatView(model: model)
+                .inspector(isPresented: $showsPeople) {
+                    PeopleInspectorView(model: model)
+                        .inspectorColumnWidth(min: 220, ideal: 260, max: 340)
+                }
+                .toolbar {
+                    ToolbarItem {
+                        Button {
+                            showsPeople.toggle()
+                        } label: {
+                            Label("People", systemImage: "person.2")
+                        }
+                    }
+                }
         }
     }
 
