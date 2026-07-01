@@ -52,9 +52,20 @@ struct SpeakerPopover: View {
             knownList(title: "Someone you know")
             addNewButton
         case .savedVoice:
+            if model.displayName(token: token) == nil {
+                // Recognized but unnamed: name the saved voice in place, so the user isn't pushed to
+                // "Add as a new voice" and fork this speaker into a duplicate identity.
+                nameField(
+                    title: "Name this voice",
+                    placeholder: "e.g. Priya, Marcus",
+                    footnote: "Names the voice Hark already recognizes, across every recording it's in."
+                ) { await model.nameSpeaker(token: token, to: draft) }
+            }
             savedVoiceActions(tentative: tentative)
             knownList(title: "Switch to someone else")
-            addNewButton
+            if model.displayName(token: token) != nil {
+                addNewButton
+            }
         }
     }
 
@@ -83,7 +94,13 @@ struct SpeakerPopover: View {
     }
 
     private func savedVoiceSubtitle(tentative: Bool) -> String {
-        let base = tentative ? "Possible match" : "Saved voice"
+        let base = if tentative {
+            "Possible match"
+        } else if model.displayName(token: token) == nil {
+            "Recognized, not yet named"
+        } else {
+            "Saved voice"
+        }
         let others = model.otherRecordings(token: token)
         guard others > 0 else { return base }
         return "\(base) · in \(others) other recording\(others == 1 ? "" : "s")"

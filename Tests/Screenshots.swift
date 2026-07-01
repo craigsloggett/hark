@@ -38,6 +38,8 @@ struct ScreenshotRenderer {
                  view: AnyView(popover(token: "speaker2", model: model))),
             Shot(name: "Popover-SavedVoice", size: CGSize(width: 300, height: 420),
                  view: AnyView(popover(token: "speaker1", model: model))),
+            Shot(name: "Popover-Recognized", size: CGSize(width: 300, height: 420),
+                 view: AnyView(popover(token: "speaker5", model: model))),
             Shot(name: "Popover-Label", size: CGSize(width: 300, height: 360),
                  view: AnyView(popover(token: "speaker3", model: model))),
             Shot(name: "Popover-NoSample", size: CGSize(width: 300, height: 340),
@@ -62,6 +64,10 @@ struct ScreenshotRenderer {
             id: "vp-marcus", name: "Marcus",
             samples: [VoiceSample(id: UUID(), embedding: embedding, duration: 20, enrolledAt: enrolledAt)]
         )
+        let recognized = Voiceprint(
+            id: "vp-recognized", name: nil,
+            samples: [VoiceSample(id: UUID(), embedding: embedding, duration: 20, enrolledAt: enrolledAt)]
+        )
         let segments = [
             TranscriptSegment(start: 0, end: 3, speaker: .remote(1), text: "Morning! Did you see the deck?"),
             TranscriptSegment(start: 3, end: 6, speaker: .you, text: "I did. Slide four needs a refresh."),
@@ -78,12 +84,15 @@ struct ScreenshotRenderer {
             "speaker3": SessionSpeaker(nameOverride: "Guest", embedding: embedding, duration: 12),
             // A legacy speaker with no saved voice sample: naming can only label the transcript.
             "speaker4": SessionSpeaker(duration: 8),
+            // Recognized (auto-enrolled) but never named: the popover names the voice in place.
+            "speaker5": SessionSpeaker(voiceprintID: "vp-recognized", embedding: embedding, duration: 20),
         ]
         let detail = SessionDetail(
             url: URL(fileURLWithPath: "/tmp/hark-preview"), segments: segments, overlay: overlay
         )
         return LabelingModel.preview(
-            detail: detail, voiceprints: [priya, marcus], usage: ["vp-priya": 4, "vp-marcus": 2]
+            detail: detail, voiceprints: [priya, marcus, recognized],
+            usage: ["vp-priya": 4, "vp-marcus": 2, "vp-recognized": 2]
         )
     }
 
