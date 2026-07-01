@@ -50,7 +50,7 @@ extension LabelingModel {
         guard !trimmed.isEmpty, var detail else { return }
         if let id = detail.overlay[token]?.voiceprintID {
             recordUndo("Name Voice")
-            try? await SpeakerStore.shared.rename(id: id, to: trimmed)
+            await attempt("Rename voice") { try await SpeakerStore.shared.rename(id: id, to: trimmed) }
             detail.overlay[token]?.confirmed = true
             await apply(detail, reloadDatabase: true)
         } else if canEnroll(token: token) {
@@ -83,9 +83,11 @@ extension LabelingModel {
               let embedding = detail.overlay[token]?.embedding
         else { return }
         recordUndo("Teach Voice")
-        try? await SpeakerStore.shared.addSample(
-            toVoiceprint: id, embedding: embedding, duration: detail.overlay[token]?.duration ?? 0
-        )
+        await attempt("Teach voice") {
+            try await SpeakerStore.shared.addSample(
+                toVoiceprint: id, embedding: embedding, duration: detail.overlay[token]?.duration ?? 0
+            )
+        }
         detail.overlay[token]?.confirmed = true
         await apply(detail, reloadDatabase: true)
     }
@@ -113,9 +115,10 @@ extension LabelingModel {
         guard var detail, let embedding = detail.overlay[token]?.embedding else { return }
         recordUndo(undoLabel)
         let duration = detail.overlay[token]?.duration ?? 0
-        guard let voiceprint = try? await SpeakerStore.shared.enroll(
-            embedding: embedding, duration: duration, name: name
-        ) else {
+        let enrolled = await attempt("Enroll voice") {
+            try await SpeakerStore.shared.enroll(embedding: embedding, duration: duration, name: name)
+        }
+        guard let voiceprint = enrolled else {
             discardLastUndoStep()
             return
         }
@@ -175,9 +178,11 @@ extension LabelingModel {
         guard var detail else { return }
         recordUndo("Use Saved Voice")
         if let embedding = detail.overlay[token]?.embedding {
-            try? await SpeakerStore.shared.addSample(
-                toVoiceprint: id, embedding: embedding, duration: detail.overlay[token]?.duration ?? 0
-            )
+            await attempt("Teach voice") {
+                try await SpeakerStore.shared.addSample(
+                    toVoiceprint: id, embedding: embedding, duration: detail.overlay[token]?.duration ?? 0
+                )
+            }
         }
         var speaker = detail.overlay[token] ?? SessionSpeaker()
         speaker.voiceprintID = id
@@ -202,7 +207,7 @@ extension LabelingModel {
     /// where no transcript is loaded.
     func forgetVoice(id: String) async {
         recordUndo("Forget Voice")
-        try? await SpeakerStore.shared.remove(id: id)
+        await attempt("Forget voice") { try await SpeakerStore.shared.remove(id: id) }
         peopleSelection = []
         voicesSelection.remove(id)
         guard var detail else {
@@ -227,11 +232,13 @@ extension LabelingModel {
                 ids.append(id)
                 continue
             }
-            guard let embedding = detail.overlay[token]?.embedding,
-                  let voiceprint = try? await SpeakerStore.shared.enroll(
-                      embedding: embedding, duration: detail.overlay[token]?.duration ?? 0, name: nil
-                  )
-            else { continue }
+            guard let embedding = detail.overlay[token]?.embedding else { continue }
+            let enrolled = await attempt("Enroll voice") {
+                try await SpeakerStore.shared.enroll(
+                    embedding: embedding, duration: detail.overlay[token]?.duration ?? 0, name: nil
+                )
+            }
+            guard let voiceprint = enrolled else { continue }
             detail.overlay[token]?.voiceprintID = voiceprint.id
             ids.append(voiceprint.id)
         }
@@ -242,7 +249,7 @@ extension LabelingModel {
         }
 
         let (destination, source) = canonicalMerge(ids[0], ids[1])
-        _ = try? await SpeakerStore.shared.merge(source, into: destination)
+        await attempt("Merge voices") { try await SpeakerStore.shared.merge(source, into: destination) }
         for token in tokens {
             detail.overlay[token]?.voiceprintID = destination
             detail.overlay[token]?.matchDistance = nil

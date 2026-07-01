@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import SwiftUI
 
 /// A run of consecutive turns from one resolved identity, the unit the chat renders as a bubble group.
@@ -23,6 +24,7 @@ enum SidebarItem: Hashable {
 @Observable
 final class LabelingModel {
     let library = SessionLibrary()
+    private let logger = Logger(category: "LabelingModel")
     /// The sidebar's selection: the global voices view or one recording.
     var sidebarSelection: SidebarItem?
     var peopleSelection: Set<String> = []
@@ -95,7 +97,7 @@ final class LabelingModel {
 
     func undo() async {
         guard let snapshot = undoStack.popLast() else { return }
-        try? await SpeakerStore.shared.replaceAll(snapshot.voiceprints)
+        await attempt("Undo restore") { try await SpeakerStore.shared.replaceAll(snapshot.voiceprints) }
         if var detail {
             detail.overlay = snapshot.overlay
             self.detail = detail
@@ -107,7 +109,7 @@ final class LabelingModel {
     // MARK: Loading
 
     func refreshVoiceprints() async {
-        let all = await (try? SpeakerStore.shared.voiceprints()) ?? []
+        let all = await attempt("Load voiceprints") { try await SpeakerStore.shared.voiceprints() } ?? []
         voiceprintsByID = Dictionary(all.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
@@ -116,7 +118,11 @@ final class LabelingModel {
         voicesSelection = []
         pendingEnrollment = nil
         undoStack = []
-        detail = selection.flatMap { try? library.loadDetail($0) }
+        if let selection {
+            detail = await attempt("Load recording") { try library.loadDetail(selection) }
+        } else {
+            detail = nil
+        }
         refreshUsage()
         await refreshDuplicateSuggestions()
     }
@@ -130,7 +136,9 @@ final class LabelingModel {
     /// in the sibling file because it sets the `private(set)` list.
     func refreshDuplicateSuggestions() async {
         let threshold = Float(Preferences.speakerConfidentMatchThreshold)
-        let pairs = await (try? SpeakerStore.shared.duplicatePairs(within: threshold)) ?? []
+        let pairs = await attempt("Scan for duplicates") {
+            try await SpeakerStore.shared.duplicatePairs(within: threshold)
+        } ?? []
         duplicateSuggestions = pairs.compactMap { pair in
             guard pair.first.name != nil || pair.second.name != nil else { return nil }
             let first = summary(for: pair.first)
@@ -268,9 +276,24 @@ final class LabelingModel {
     /// Writes the overlay and re-renders `transcript.txt` with the current voiceprint names.
     private func persist() async {
         guard let detail else { return }
-        try? Session(url: detail.url).writeSpeakers(detail.overlay)
-        let all = await (try? SpeakerStore.shared.voiceprints()) ?? []
-        try? TranscriptionService.rerenderTranscript(at: detail.url, voiceprints: all)
+        await attempt("Save speaker overlay") { try Session(url: detail.url).writeSpeakers(detail.overlay) }
+        let all = await attempt("Load voiceprints") { try await SpeakerStore.shared.voiceprints() } ?? []
+        await attempt("Re-render transcript") {
+            try TranscriptionService.rerenderTranscript(at: detail.url, voiceprints: all)
+        }
+    }
+
+    /// Runs a store or disk write, logging a failure rather than surfacing it, so an edit degrades
+    /// visibly in Console instead of silently diverging from disk. Internal so the editing methods in
+    /// the sibling files report through the same channel.
+    @discardableResult
+    func attempt<T>(_ label: String, _ operation: () async throws -> T) async -> T? {
+        do {
+            return try await operation()
+        } catch {
+            logger.error("\(label, privacy: .public) failed: \(error, privacy: .public)")
+            return nil
+        }
     }
 }
 

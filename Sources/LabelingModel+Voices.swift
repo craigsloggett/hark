@@ -58,7 +58,7 @@ extension LabelingModel {
         guard first != second else { return }
         recordUndo("Merge Voices")
         let (destination, source) = canonicalMerge(first, second)
-        _ = try? await SpeakerStore.shared.merge(source, into: destination)
+        await attempt("Merge voices") { try await SpeakerStore.shared.merge(source, into: destination) }
         voicesSelection = [destination]
         await finishEdit(reloadDatabase: true)
     }
