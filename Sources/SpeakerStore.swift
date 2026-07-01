@@ -31,23 +31,12 @@ actor SpeakerStore {
     static let shared = SpeakerStore()
 
     private let directory: URL?
-    private let now: @Sendable () -> Date
-    private let uuid: @Sendable () -> UUID
     private let logger = Logger(category: "SpeakerStore")
 
-    /// - Parameters:
-    ///   - directory: where `voiceprints.json` lives (defaults to the sandbox container's
-    ///     `Application Support/Hark`).
-    ///   - now: enrollment-time source, injected so tests can pin `enrolledAt`.
-    ///   - uuid: id source for fresh voiceprints and samples, injected so tests can pin ids.
-    init(
-        directory: URL? = nil,
-        now: @escaping @Sendable () -> Date = Date.init,
-        uuid: @escaping @Sendable () -> UUID = UUID.init
-    ) {
+    /// - Parameter directory: where `voiceprints.json` lives (defaults to the sandbox container's
+    ///   `Application Support/Hark`).
+    init(directory: URL? = nil) {
         self.directory = directory
-        self.now = now
-        self.uuid = uuid
     }
 
     /// Resolves each cluster to a stable identity, enrolling and persisting new voiceprints.
@@ -129,8 +118,8 @@ actor SpeakerStore {
     func enroll(embedding: [Float], duration: Float, name: String?) throws -> Voiceprint {
         guard embedding.count == SpeakerManager.embeddingSize else { throw SpeakerStoreError.invalidEmbedding }
         var voiceprints = try load()
-        let sample = VoiceSample(id: uuid(), embedding: embedding, duration: duration, enrolledAt: now())
-        let voiceprint = Voiceprint(id: uuid().uuidString, name: normalizedName(name), samples: [sample])
+        let sample = VoiceSample(id: UUID(), embedding: embedding, duration: duration, enrolledAt: Date())
+        let voiceprint = Voiceprint(id: UUID().uuidString, name: normalizedName(name), samples: [sample])
         voiceprints.append(voiceprint)
         try save(voiceprints)
         return voiceprint
@@ -146,7 +135,7 @@ actor SpeakerStore {
             throw SpeakerStoreError.unknownVoiceprint
         }
         let existing = voiceprints[index]
-        let sample = VoiceSample(id: uuid(), embedding: embedding, duration: duration, enrolledAt: now())
+        let sample = VoiceSample(id: UUID(), embedding: embedding, duration: duration, enrolledAt: Date())
         voiceprints[index] = Voiceprint(
             id: existing.id, name: existing.name, samples: existing.samples + [sample], redirectID: existing.redirectID
         )
@@ -268,9 +257,9 @@ actor SpeakerStore {
                 )
             } else if cluster.duration >= enrollFloor {
                 let sample = VoiceSample(
-                    id: uuid(), embedding: cluster.embedding, duration: cluster.duration, enrolledAt: now()
+                    id: UUID(), embedding: cluster.embedding, duration: cluster.duration, enrolledAt: Date()
                 )
-                let fresh = Voiceprint(id: uuid().uuidString, name: nil, samples: [sample])
+                let fresh = Voiceprint(id: UUID().uuidString, name: nil, samples: [sample])
                 enrolled.append(fresh)
                 claimed.insert(fresh.id)
                 resolved[cluster.id] = SpeakerIdentity(id: fresh.id, name: nil, distance: nil)
