@@ -3,9 +3,6 @@ import AppKit
 /// Promotes the app from a menu-bar accessory to a regular Dock app while the recordings window is
 /// open, and back to accessory when the last one closes. Driven by the window root's appear and
 /// disappear so a relaunch or state restoration flows through the same counter as a menu open.
-///
-/// If `.onDisappear` ever proves unreliable for the close, the fallback is an
-/// `NSApplicationDelegateAdaptor` observing `NSWindow.willCloseNotification`.
 @MainActor
 final class WindowActivation {
     static let shared = WindowActivation()

@@ -13,13 +13,11 @@ struct PendingEnrollment: Identifiable {
     }
 
     let id = UUID()
-    /// The session token whose enroll is pending.
     let token: String
     /// The name the user typed, carried through if they enroll separately after all.
     let name: String?
     /// The undo label the eventual enroll should record.
     let undoLabel: String
-    /// The saved voice this enroll looks like a duplicate of.
     let match: Voiceprint
     let reason: Reason
 

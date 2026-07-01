@@ -33,7 +33,6 @@ struct Session {
         return try JSONDecoder().decode([String: SessionSpeaker].self, from: Data(contentsOf: speakers))
     }
 
-    /// Writes the `speakers.json` overlay, used when the labeling window edits a session's speakers.
     func writeSpeakers(_ overlay: [String: SessionSpeaker]) throws {
         try overlay.writeJSON(to: speakers)
     }

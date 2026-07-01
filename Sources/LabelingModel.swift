@@ -25,7 +25,6 @@ enum SidebarItem: Hashable {
 final class LabelingModel {
     let library = SessionLibrary()
     private let logger = Logger(category: "LabelingModel")
-    /// The sidebar's selection: the global voices view or one recording.
     var sidebarSelection: SidebarItem?
     var peopleSelection: Set<String> = []
     /// The voices selected in the global manager (by voiceprint id), for merging across recordings.
@@ -40,13 +39,11 @@ final class LabelingModel {
     /// reuse the existing voice. `nil` when no enroll is awaiting that choice.
     var pendingEnrollment: PendingEnrollment?
 
-    /// The loaded recording, derived from the sidebar selection (`nil` in the voices view).
     var selection: URL? {
         if case let .session(url) = sidebarSelection { return url }
         return nil
     }
 
-    /// Whether the sidebar is showing the global voices manager rather than a recording.
     var showsVoices: Bool {
         sidebarSelection == .voices
     }

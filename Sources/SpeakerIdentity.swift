@@ -1,5 +1,5 @@
 /// A speaker's resolved cross-session identity, the result of matching one session's clusters against
-/// the voiceprint database. `TranscriptionService` maps these onto the persisted `SessionSpeaker` overlay.
+/// the voiceprint database.
 struct SpeakerIdentity: Codable, Equatable {
     let id: String
     let name: String?

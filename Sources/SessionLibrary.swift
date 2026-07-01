@@ -48,7 +48,6 @@ final class SessionLibrary {
             .sorted { $0.date > $1.date }
     }
 
-    /// Loads a session's positional segments and speaker overlay.
     func loadDetail(_ url: URL) throws -> SessionDetail {
         let session = Session(url: url)
         let segments = try JSONDecoder().decode(

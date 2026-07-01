@@ -1,5 +1,4 @@
-/// One saved voice in the global manager: its name (or unnamed), sample count, and how many
-/// recordings use it.
+/// A saved voice as the global Voices manager lists it.
 struct VoiceSummary: Identifiable, Equatable {
     let id: String
     let name: String?
