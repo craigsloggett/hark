@@ -14,9 +14,20 @@ struct SessionSpeakerTests {
     }
 
     @Test func roundTripsNewShape() throws {
-        let speaker = SessionSpeaker(voiceprintID: "v1", nameOverride: "Boss", embedding: [0.5, 0.25], duration: 3)
+        let speaker = SessionSpeaker(
+            voiceprintID: "v1", nameOverride: "Boss", matchDistance: 0.5, confirmed: true,
+            embedding: [0.5, 0.25], duration: 3
+        )
         let data = try JSONEncoder().encode(speaker)
         #expect(try JSONDecoder().decode(SessionSpeaker.self, from: data) == speaker)
+    }
+
+    @Test func omitsConfirmedWhenFalse() throws {
+        // A false `confirmed` (the default) stays out of the JSON, so an auto-match round-trips cleanly.
+        let speaker = SessionSpeaker(voiceprintID: "v1", matchDistance: 0.5)
+        let json = try #require(try String(bytes: JSONEncoder().encode(speaker), encoding: .utf8))
+        #expect(!json.contains("confirmed"))
+        #expect(try JSONDecoder().decode(SessionSpeaker.self, from: Data(json.utf8)) == speaker)
     }
 
     @Test func omitsNilFields() throws {
@@ -97,5 +108,45 @@ struct SessionSpeakerTests {
         // With a surviving label it falls back to that label rather than a dead binding.
         let labeled = ["speaker1": SessionSpeaker(voiceprintID: "gone", nameOverride: "Chair")]
         #expect(SpeakerDisplay.binding(token: "speaker1", overlay: labeled, voiceprints: [:]) == .localLabel("Chair"))
+    }
+
+    // MARK: Likely-match confidence
+
+    private let byAda = ["v1": Voiceprint(id: "v1", name: "Ada", samples: [])]
+
+    private func isLikely(_ speaker: SessionSpeaker, above: Float = 0.4) -> Bool {
+        SpeakerDisplay.isLikelyMatch(
+            token: "speaker1", overlay: ["speaker1": speaker], voiceprints: byAda, likelyAbove: above
+        )
+    }
+
+    @Test func likelyWhenBorderlineUnconfirmedMatch() {
+        #expect(isLikely(SessionSpeaker(voiceprintID: "v1", matchDistance: 0.5)))
+    }
+
+    @Test func notLikelyWhenStrongMatch() {
+        #expect(!isLikely(SessionSpeaker(voiceprintID: "v1", matchDistance: 0.3)))
+    }
+
+    @Test func notLikelyWhenConfirmed() {
+        #expect(!isLikely(SessionSpeaker(voiceprintID: "v1", matchDistance: 0.5, confirmed: true)))
+    }
+
+    @Test func notLikelyWithoutADistance() {
+        // A user-set binding or legacy overlay has no distance, so it reads plainly.
+        #expect(!isLikely(SessionSpeaker(voiceprintID: "v1")))
+    }
+
+    @Test func notLikelyWhenOverridden() {
+        // A typed label is a deliberate choice, not a tentative guess.
+        #expect(!isLikely(SessionSpeaker(voiceprintID: "v1", nameOverride: "Chair", matchDistance: 0.5)))
+    }
+
+    @Test func notLikelyWhenVoiceIsUnnamed() {
+        let unnamed = ["v1": voiceprint("v1", name: nil)]
+        let overlay = ["speaker1": SessionSpeaker(voiceprintID: "v1", matchDistance: 0.5)]
+        #expect(!SpeakerDisplay.isLikelyMatch(
+            token: "speaker1", overlay: overlay, voiceprints: unnamed, likelyAbove: 0.4
+        ))
     }
 }

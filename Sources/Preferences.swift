@@ -14,6 +14,7 @@ enum Preferences {
         static let diarizationExclusiveSegments = "diarizationExclusiveSegments"
         static let diarizationMaxSpeakers = "diarizationMaxSpeakers"
         static let speakerMatchThreshold = "speakerMatchThreshold"
+        static let speakerConfidentMatchThreshold = "speakerConfidentMatchThreshold"
         static let speakerMinEnrollmentDuration = "speakerMinEnrollmentDuration"
         static let voiceprintMaxSamples = "voiceprintMaxSamples"
         static let asrDualDecodeArbitration = "asrDualDecodeArbitration"
@@ -42,6 +43,11 @@ enum Preferences {
         /// Maximum cosine distance to match a session speaker to an enrolled voiceprint (lower is
         /// stricter). A different metric from `diarizationClusteringThreshold`, so the value doesn't carry over.
         static let speakerMatchThreshold = 0.65
+
+        /// Cosine distance at or below which an auto-match is shown confidently; a match between this
+        /// and `speakerMatchThreshold` is shown as tentative ("Likely <name>") for the user to confirm.
+        /// hark-owned, no SDK constant.
+        static let speakerConfidentMatchThreshold = 0.4
 
         /// Community-1's segmentation step ratio (lower sharpens turn boundaries at roughly 2x cost).
         static var diarizationStepRatio: Double {
@@ -107,6 +113,7 @@ enum Preferences {
             Key.diarizationExclusiveSegments: Default.diarizationUsesExclusiveSegments,
             Key.diarizationMaxSpeakers: Default.diarizationMaxSpeakers,
             Key.speakerMatchThreshold: Default.speakerMatchThreshold,
+            Key.speakerConfidentMatchThreshold: Default.speakerConfidentMatchThreshold,
             Key.speakerMinEnrollmentDuration: Default.speakerMinEnrollmentDuration,
             Key.voiceprintMaxSamples: Default.voiceprintMaxSamples,
             Key.asrDualDecodeArbitration: Default.asrUsesDualDecodeArbitration,
@@ -149,6 +156,10 @@ enum Preferences {
 
     static var speakerMatchThreshold: Double {
         resolved(Key.speakerMatchThreshold, default: Default.speakerMatchThreshold)
+    }
+
+    static var speakerConfidentMatchThreshold: Double {
+        resolved(Key.speakerConfidentMatchThreshold, default: Default.speakerConfidentMatchThreshold)
     }
 
     static var speakerMinEnrollmentDuration: Double {

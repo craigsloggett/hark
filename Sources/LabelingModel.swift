@@ -11,9 +11,8 @@ struct TurnGroup: Identifiable {
 }
 
 /// The state hub for the labeling window: the session list, the loaded transcript and its editable
-/// speaker overlay, and a snapshot of the voiceprint database. Every edit writes through
-/// `SpeakerStore`, updates the overlay, re-renders `transcript.txt`, and refreshes the snapshot, and
-/// pushes an undo snapshot first so any edit is reversible.
+/// speaker overlay, and a snapshot of the voiceprint database. Every edit (in `LabelingModel+Editing`)
+/// pushes an undo snapshot, mutates the overlay and/or `SpeakerStore`, then re-renders `transcript.txt`.
 @MainActor
 @Observable
 final class LabelingModel {
@@ -47,7 +46,9 @@ final class LabelingModel {
         undoStack.last.map { "Undo \($0.label)" }
     }
 
-    private func recordUndo(_ label: String) {
+    /// Snapshots the current state under `label` before an edit. Internal so the editing methods in the
+    /// sibling file record their own step.
+    func recordUndo(_ label: String) {
         guard let detail else { return }
         undoStack.append(UndoSnapshot(
             label: label,
@@ -57,6 +58,13 @@ final class LabelingModel {
         ))
         if undoStack.count > Self.undoDepth {
             undoStack.removeFirst(undoStack.count - Self.undoDepth)
+        }
+    }
+
+    /// Drops the most recent undo snapshot, for an edit that recorded one then aborted.
+    func discardLastUndoStep() {
+        if !undoStack.isEmpty {
+            undoStack.removeLast()
         }
     }
 
@@ -111,6 +119,17 @@ final class LabelingModel {
     func binding(token: String) -> SpeakerBinding {
         guard let detail else { return .unknown }
         return SpeakerDisplay.binding(token: token, overlay: detail.overlay, voiceprints: voiceprintsByID)
+    }
+
+    /// Whether the token is a borderline auto-match worth confirming, shown as "Likely <name>".
+    func isLikelyMatch(token: String) -> Bool {
+        guard let detail else { return false }
+        return SpeakerDisplay.isLikelyMatch(
+            token: token,
+            overlay: detail.overlay,
+            voiceprints: voiceprintsByID,
+            likelyAbove: Float(Preferences.speakerConfidentMatchThreshold)
+        )
     }
 
     func positionalLabel(token: String) -> String {
@@ -180,182 +199,19 @@ final class LabelingModel {
     var canMerge: Bool {
         peopleSelection.count == 2 && !peopleSelection.contains("you")
     }
-}
 
-// MARK: - Editing
+    // MARK: Edit plumbing
 
-/// Every edit records an undo snapshot first, mutates the overlay and/or the voiceprint database,
-/// then writes the overlay and re-renders `transcript.txt` through `finishEdit`.
-extension LabelingModel {
-    /// Relabels a pre-populated speaker for this transcript only, leaving the voiceprint untouched.
-    func renameOverride(token: String, to name: String) async {
-        guard var detail else { return }
-        recordUndo("Rename")
-        var speaker = detail.overlay[token] ?? SessionSpeaker()
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        speaker.nameOverride = trimmed.isEmpty ? nil : trimmed
-        detail.overlay[token] = speaker
+    /// Applies an edited overlay and finishes the edit. The editing methods in the sibling file route
+    /// their `detail` writes through here, so `detail`'s setter stays private to this file.
+    func apply(_ detail: SessionDetail, reloadDatabase: Bool) async {
         self.detail = detail
-        await finishEdit(reloadDatabase: false)
-    }
-
-    /// Drops a transcript-only label, returning the chip to its positional "Speaker N".
-    func clearLabel(token: String) async {
-        guard var detail, detail.overlay[token]?.nameOverride != nil else { return }
-        recordUndo("Clear Label")
-        detail.overlay[token]?.nameOverride = nil
-        self.detail = detail
-        await finishEdit(reloadDatabase: false)
-    }
-
-    /// Clears a saved-voice binding for this transcript, leaving the underlying voice untouched. The
-    /// escape hatch for an assignment made by mistake; any transcript label is kept.
-    func unassign(token: String) async {
-        guard var detail, detail.overlay[token]?.voiceprintID != nil else { return }
-        recordUndo("Unassign")
-        detail.overlay[token]?.voiceprintID = nil
-        self.detail = detail
-        await finishEdit(reloadDatabase: false)
-    }
-
-    /// Names an unlabeled speaker: renames the bound voiceprint if one exists (enrollment identity),
-    /// otherwise enrolls a new voiceprint from the stored centroid.
-    func nameSpeaker(token: String, to name: String) async {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let detail else { return }
-        if let id = detail.overlay[token]?.voiceprintID {
-            recordUndo("Name Voice")
-            try? await SpeakerStore.shared.rename(id: id, to: trimmed)
-            await finishEdit(reloadDatabase: true)
-        } else {
-            await enrollAndBind(token: token, name: trimmed, undoLabel: "Name Voice")
-        }
-    }
-
-    /// Assigns this transcript's speaker to a saved voice. Label-only by design: it does not teach the
-    /// voice this clip, so a wrong pick is a cheap, reversible correction rather than a polluting one
-    /// (teaching is the deliberate `teachVoice`).
-    func rebind(token: String, toVoiceprint id: String) async {
-        guard var detail else { return }
-        recordUndo("Assign Voice")
-        var speaker = detail.overlay[token] ?? SessionSpeaker()
-        speaker.voiceprintID = id
-        speaker.nameOverride = nil
-        detail.overlay[token] = speaker
-        self.detail = detail
-        await finishEdit(reloadDatabase: false)
-    }
-
-    /// Teaches the bound saved voice this clip, improving future recognition. A deliberate act, so a
-    /// casual assignment never shifts a voice's centroid on its own.
-    func teachVoice(token: String) async {
-        guard let detail,
-              let id = detail.overlay[token]?.voiceprintID,
-              let embedding = detail.overlay[token]?.embedding
-        else { return }
-        recordUndo("Teach Voice")
-        try? await SpeakerStore.shared.addSample(
-            toVoiceprint: id, embedding: embedding, duration: detail.overlay[token]?.duration ?? 0
-        )
-        await finishEdit(reloadDatabase: true)
-    }
-
-    /// Enrolls a brand-new voiceprint for this speaker (optionally named) and binds to it.
-    func addNewVoice(token: String, name: String?) async {
-        await enrollAndBind(token: token, name: name, undoLabel: "Add Voice")
-    }
-
-    private func enrollAndBind(token: String, name: String?, undoLabel: String) async {
-        guard var detail, let embedding = detail.overlay[token]?.embedding else { return }
-        recordUndo(undoLabel)
-        let duration = detail.overlay[token]?.duration ?? 0
-        guard let voiceprint = try? await SpeakerStore.shared.enroll(
-            embedding: embedding, duration: duration, name: name
-        ) else {
-            undoStack.removeLast()
-            return
-        }
-        var speaker = detail.overlay[token] ?? SessionSpeaker()
-        speaker.voiceprintID = voiceprint.id
-        speaker.nameOverride = nil
-        detail.overlay[token] = speaker
-        self.detail = detail
-        await finishEdit(reloadDatabase: true)
-    }
-
-    /// Renames a saved voice everywhere it is used, a global identity edit unlike a transcript relabel.
-    func renameVoice(id: String, to name: String) async {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        recordUndo("Rename Voice")
-        try? await SpeakerStore.shared.rename(id: id, to: trimmed)
-        await finishEdit(reloadDatabase: true)
-    }
-
-    /// Forgets a saved voice. Speakers bound to it in this transcript fall back to positional; other
-    /// recordings do the same the next time they are opened.
-    func forgetVoice(id: String) async {
-        guard var detail else { return }
-        recordUndo("Forget Voice")
-        try? await SpeakerStore.shared.remove(id: id)
-        for (token, speaker) in detail.overlay where speaker.voiceprintID == id {
-            detail.overlay[token]?.voiceprintID = nil
-        }
-        self.detail = detail
-        peopleSelection = []
-        await finishEdit(reloadDatabase: true)
-    }
-
-    /// Merges the two selected speakers into one identity (fixes an over-split voice). Positional-only
-    /// speakers enroll first; the survivor keeps its name and gains the other's samples.
-    func mergeSelected() async {
-        guard canMerge, var detail else { return }
-        recordUndo("Merge Voices")
-        let tokens = Array(peopleSelection)
-        var ids: [String] = []
-        for token in tokens {
-            if let id = detail.overlay[token]?.voiceprintID {
-                ids.append(id)
-                continue
-            }
-            guard let embedding = detail.overlay[token]?.embedding,
-                  let voiceprint = try? await SpeakerStore.shared.enroll(
-                      embedding: embedding, duration: detail.overlay[token]?.duration ?? 0, name: nil
-                  )
-            else { continue }
-            detail.overlay[token]?.voiceprintID = voiceprint.id
-            ids.append(voiceprint.id)
-        }
-        await refreshVoiceprints()
-        guard ids.count == 2, ids[0] != ids[1] else {
-            self.detail = detail
-            await finishEdit(reloadDatabase: true)
-            return
-        }
-
-        let (destination, source) = canonicalMerge(ids[0], ids[1])
-        _ = try? await SpeakerStore.shared.merge(source, into: destination)
-        for token in tokens {
-            detail.overlay[token]?.voiceprintID = destination
-        }
-        self.detail = detail
-        peopleSelection = []
-        await finishEdit(reloadDatabase: true)
-    }
-
-    /// Chooses which voiceprint survives a merge: the named one, else the one with more samples.
-    private func canonicalMerge(_ first: String, _ second: String) -> (destination: String, source: String) {
-        let firstPrint = voiceprintsByID[first]
-        let secondPrint = voiceprintsByID[second]
-        if firstPrint?.name != nil, secondPrint?.name == nil { return (first, second) }
-        if secondPrint?.name != nil, firstPrint?.name == nil { return (second, first) }
-        if (firstPrint?.samples.count ?? 0) >= (secondPrint?.samples.count ?? 0) { return (first, second) }
-        return (second, first)
+        await finishEdit(reloadDatabase: reloadDatabase)
     }
 
     /// Refreshes the voiceprint snapshot (when the database changed), writes the overlay, re-renders
     /// `transcript.txt`, and recomputes cross-session usage.
-    private func finishEdit(reloadDatabase: Bool) async {
+    func finishEdit(reloadDatabase: Bool) async {
         if reloadDatabase {
             await refreshVoiceprints()
         }

@@ -99,13 +99,6 @@ enum SpeakerStoreError: Error {
     case unknownVoiceprint
 }
 
-/// A speaker's resolved cross-session identity, the result of matching one session's clusters against
-/// the voiceprint database. `TranscriptionService` maps these onto the persisted `SessionSpeaker` overlay.
-struct SpeakerIdentity: Codable, Equatable {
-    let id: String
-    let name: String?
-}
-
 /// Matches each session's diarized speakers against a persisted voiceprint database so a recurring
 /// voice keeps a stable identity across sessions. Matching is read-only against a pre-session
 /// snapshot, so two voices in one meeting can't collapse together (unmatched speakers enroll only
@@ -302,7 +295,9 @@ actor SpeakerStore {
             // available to this cluster.
             if let match = matches.first(where: { !claimed.contains($0.id) }) {
                 claimed.insert(match.id)
-                resolved[cluster.id] = SpeakerIdentity(id: match.id, name: byID[match.id]?.name)
+                resolved[cluster.id] = SpeakerIdentity(
+                    id: match.id, name: byID[match.id]?.name, distance: match.distance
+                )
             } else if cluster.duration >= enrollFloor {
                 let sample = VoiceSample(
                     id: uuid(), embedding: cluster.embedding, duration: cluster.duration, enrolledAt: now()
@@ -310,7 +305,7 @@ actor SpeakerStore {
                 let fresh = Voiceprint(id: uuid().uuidString, name: nil, samples: [sample])
                 enrolled.append(fresh)
                 claimed.insert(fresh.id)
-                resolved[cluster.id] = SpeakerIdentity(id: fresh.id, name: nil)
+                resolved[cluster.id] = SpeakerIdentity(id: fresh.id, name: nil, distance: nil)
             }
         }
         return (resolved, enrolled)

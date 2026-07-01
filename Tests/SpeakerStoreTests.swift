@@ -58,6 +58,16 @@ final class SpeakerStoreTests {
         #expect(matched["S1"]?.id == id)
     }
 
+    @Test func matchCarriesDistanceButEnrollmentDoesNot() async {
+        let first = SpeakerStore(directory: directory)
+        let enrolled = await first.resolve([SpeakerCluster(id: "S1", embedding: embedding([1]), duration: 12)])
+        #expect(enrolled["S1"]?.distance == nil) // a freshly enrolled voice is new, not matched
+
+        let second = SpeakerStore(directory: directory)
+        let matched = await second.resolve([SpeakerCluster(id: "S1", embedding: embedding([1, 0.02]), duration: 8)])
+        #expect(matched["S1"]?.distance != nil) // a match records how close it was, for the "Likely" cue
+    }
+
     @Test func unmatchedVoiceEnrollsAsNew() async throws {
         let store = SpeakerStore(directory: directory)
         let first = await store.resolve([SpeakerCluster(id: "S1", embedding: embedding([1]), duration: 10)])

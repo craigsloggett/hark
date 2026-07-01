@@ -133,6 +133,7 @@ struct TranscriptionService {
             let identity = byCluster[clusterID]
             overlay[speaker.token] = SessionSpeaker(
                 voiceprintID: identity?.id,
+                matchDistance: identity?.distance,
                 embedding: diarization.embeddings[clusterID],
                 duration: durations[clusterID]
             )

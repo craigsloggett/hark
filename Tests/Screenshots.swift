@@ -68,7 +68,10 @@ struct ScreenshotRenderer {
             TranscriptSegment(start: 12, end: 15, speaker: .remote(1), text: "Perfect. Let's regroup after lunch."),
         ]
         let overlay: [String: SessionSpeaker] = [
-            "speaker1": SessionSpeaker(voiceprintID: "vp-priya", embedding: embedding, duration: 30),
+            // A borderline auto-match (distance past the 0.4 confident cutoff) reads as "Likely Priya".
+            "speaker1": SessionSpeaker(
+                voiceprintID: "vp-priya", matchDistance: 0.55, embedding: embedding, duration: 30
+            ),
             "speaker2": SessionSpeaker(embedding: embedding, duration: 18),
             "speaker3": SessionSpeaker(nameOverride: "Guest", embedding: embedding, duration: 12),
         ]

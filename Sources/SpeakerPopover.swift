@@ -12,9 +12,10 @@ struct SpeakerPopover: View {
 
     var body: some View {
         let binding = model.binding(token: token)
+        let tentative = model.isLikelyMatch(token: token)
         VStack(alignment: .leading, spacing: 12) {
-            header(binding)
-            content(for: binding)
+            header(binding, tentative: tentative)
+            content(for: binding, tentative: tentative)
         }
         .padding(14)
         .frame(width: 272)
@@ -22,7 +23,7 @@ struct SpeakerPopover: View {
     }
 
     @ViewBuilder
-    private func content(for binding: SpeakerBinding) -> some View {
+    private func content(for binding: SpeakerBinding, tentative: Bool) -> some View {
         switch binding {
         case .unknown:
             nameField(
@@ -42,44 +43,50 @@ struct SpeakerPopover: View {
             knownList(title: "Someone you know")
             addNewButton
         case .savedVoice:
-            savedVoiceActions
+            savedVoiceActions(tentative: tentative)
             knownList(title: "Switch to someone else")
             addNewButton
         }
     }
 
-    private func header(_ binding: SpeakerBinding) -> some View {
+    private func header(_ binding: SpeakerBinding, tentative: Bool) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {
                 Circle().fill(model.color(for: token)).frame(width: 10, height: 10)
                 Text(model.displayName(token: token) ?? model.positionalLabel(token: token))
                     .font(.headline)
             }
-            Text(subtitle(for: binding))
+            Text(subtitle(for: binding, tentative: tentative))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
     }
 
-    private func subtitle(for binding: SpeakerBinding) -> String {
+    private func subtitle(for binding: SpeakerBinding, tentative: Bool) -> String {
         switch binding {
         case .unknown:
             "Unidentified speaker"
         case .localLabel:
             "Labeled in this transcript only"
         case .savedVoice:
-            savedVoiceSubtitle
+            savedVoiceSubtitle(tentative: tentative)
         }
     }
 
-    private var savedVoiceSubtitle: String {
+    private func savedVoiceSubtitle(tentative: Bool) -> String {
+        let base = tentative ? "Possible match" : "Saved voice"
         let others = model.otherRecordings(token: token)
-        guard others > 0 else { return "Saved voice" }
-        return "Saved voice · in \(others) other recording\(others == 1 ? "" : "s")"
+        guard others > 0 else { return base }
+        return "\(base) · in \(others) other recording\(others == 1 ? "" : "s")"
     }
 
-    private var savedVoiceActions: some View {
+    private func savedVoiceActions(tentative: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
+            if tentative {
+                actionRow("Yes, it's \(model.displayName(token: token) ?? "them")", systemImage: "checkmark.circle") {
+                    await model.confirmMatch(token: token)
+                }
+            }
             actionRow("Not \(model.displayName(token: token) ?? "this person")", systemImage: "person.fill.xmark") {
                 await model.unassign(token: token)
             }

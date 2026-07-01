@@ -12,10 +12,25 @@ struct SessionSpeaker: Equatable {
     var embedding: [Float]?
     /// This speaker's diarized speech, the duration of the enrollment sample built from `embedding`.
     var duration: Float?
+    /// The cosine distance of the auto-match that bound `voiceprintID`, so a borderline match can be
+    /// shown as tentative ("Likely <name>"). `nil` for a positional speaker or a user-set binding.
+    var matchDistance: Float?
+    /// Whether the user has confirmed or manually set the binding, so it is shown plainly rather than
+    /// as a tentative auto-match.
+    var confirmed: Bool
 
-    init(voiceprintID: String? = nil, nameOverride: String? = nil, embedding: [Float]? = nil, duration: Float? = nil) {
+    init(
+        voiceprintID: String? = nil,
+        nameOverride: String? = nil,
+        matchDistance: Float? = nil,
+        confirmed: Bool = false,
+        embedding: [Float]? = nil,
+        duration: Float? = nil
+    ) {
         self.voiceprintID = voiceprintID
         self.nameOverride = nameOverride
+        self.matchDistance = matchDistance
+        self.confirmed = confirmed
         self.embedding = embedding
         self.duration = duration
     }
@@ -23,7 +38,7 @@ struct SessionSpeaker: Equatable {
 
 extension SessionSpeaker: Codable {
     private enum CodingKeys: String, CodingKey {
-        case voiceprintID, nameOverride, embedding, duration
+        case voiceprintID, nameOverride, matchDistance, confirmed, embedding, duration
         case id, name // Legacy `{id, name}` overlay shape.
     }
 
@@ -32,6 +47,8 @@ extension SessionSpeaker: Codable {
         voiceprintID = try container.decodeIfPresent(String.self, forKey: .voiceprintID)
             ?? container.decodeIfPresent(String.self, forKey: .id)
         nameOverride = try container.decodeIfPresent(String.self, forKey: .nameOverride)
+        matchDistance = try container.decodeIfPresent(Float.self, forKey: .matchDistance)
+        confirmed = try container.decodeIfPresent(Bool.self, forKey: .confirmed) ?? false
         embedding = try container.decodeIfPresent([Float].self, forKey: .embedding)
         duration = try container.decodeIfPresent(Float.self, forKey: .duration)
         // Legacy `name` was a snapshot of the voiceprint's name; dropped so the live voiceprint governs.
@@ -41,6 +58,10 @@ extension SessionSpeaker: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(voiceprintID, forKey: .voiceprintID)
         try container.encodeIfPresent(nameOverride, forKey: .nameOverride)
+        try container.encodeIfPresent(matchDistance, forKey: .matchDistance)
+        if confirmed {
+            try container.encode(confirmed, forKey: .confirmed)
+        }
         try container.encodeIfPresent(embedding, forKey: .embedding)
         try container.encodeIfPresent(duration, forKey: .duration)
     }
@@ -101,5 +122,24 @@ enum SpeakerDisplay {
             return .localLabel(override)
         }
         return .unknown
+    }
+
+    /// Whether a token is an unconfirmed auto-match far enough from certainty to be worth confirming,
+    /// shown as "Likely <name>" with confirm/reject. A confirmed or user-set binding, a strong match,
+    /// an unnamed voice, or a transcript label is never tentative.
+    /// - Parameter likelyAbove: distances above this (up to the match threshold) read as tentative.
+    static func isLikelyMatch(
+        token: String,
+        overlay: [String: SessionSpeaker],
+        voiceprints: [String: Voiceprint],
+        likelyAbove: Float
+    ) -> Bool {
+        guard let speaker = overlay[token], !speaker.confirmed,
+              (speaker.nameOverride ?? "").isEmpty,
+              let id = speaker.voiceprintID,
+              let distance = speaker.matchDistance,
+              Voiceprint.survivor(of: id, in: voiceprints)?.name != nil
+        else { return false }
+        return distance > likelyAbove
     }
 }

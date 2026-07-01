@@ -5,6 +5,9 @@ struct AdvancedSettingsView: View {
     @AppStorage(Preferences.Key.speakerMatchThreshold)
     private var speakerMatchThreshold = Preferences.Default.speakerMatchThreshold
 
+    @AppStorage(Preferences.Key.speakerConfidentMatchThreshold)
+    private var speakerConfidentMatchThreshold = Preferences.Default.speakerConfidentMatchThreshold
+
     @AppStorage(Preferences.Key.speakerMinEnrollmentDuration)
     private var speakerMinEnrollmentDuration = Preferences.Default.speakerMinEnrollmentDuration
 
@@ -61,6 +64,12 @@ struct AdvancedSettingsView: View {
                     value: $speakerMatchThreshold, range: 0.1 ... 1.5, step: 0.05,
                     help: "Lower is stricter about matching this session's speakers to voices Hark has "
                         + "saved before, so it reuses a saved voice less readily."
+                )
+                sliderRow(
+                    "Confident about a match",
+                    value: $speakerConfidentMatchThreshold, range: 0.1 ... 1.5, step: 0.05,
+                    help: "Matches this close or closer show the saved name outright; weaker ones show "
+                        + "as \"Likely <name>\" for you to confirm."
                 )
                 sliderRow(
                     "Speech needed to remember a voice",
@@ -239,6 +248,7 @@ struct AdvancedSettingsView: View {
 
     private func resetToDefaults() {
         speakerMatchThreshold = Preferences.Default.speakerMatchThreshold
+        speakerConfidentMatchThreshold = Preferences.Default.speakerConfidentMatchThreshold
         speakerMinEnrollmentDuration = Preferences.Default.speakerMinEnrollmentDuration
         voiceprintMaxSamples = Preferences.Default.voiceprintMaxSamples
         clusteringThreshold = Preferences.Default.diarizationClusteringThreshold
