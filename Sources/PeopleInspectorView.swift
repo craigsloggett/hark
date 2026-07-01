@@ -7,6 +7,15 @@ struct PeopleInspectorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            HStack {
+                Text("People")
+                    .font(.headline)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+
             List(model.rosterTokens, id: \.self, selection: $model.peopleSelection) { token in
                 PersonRow(token: token, model: model)
                     .selectionDisabled(token == "you")
@@ -26,7 +35,6 @@ struct PeopleInspectorView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
         }
-        .navigationTitle("People")
     }
 }
 

@@ -21,7 +21,8 @@ struct TranscriptChatView: View {
                 }
             }
         }
-        .navigationTitle(model.currentTitle)
+        .navigationTitle("Transcript")
+        .navigationSubtitle(model.detail == nil ? "" : model.currentTitle)
     }
 }
 
