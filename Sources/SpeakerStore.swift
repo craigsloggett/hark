@@ -9,91 +9,6 @@ struct SpeakerCluster {
     let duration: Float
 }
 
-/// One enrollment sample for a voiceprint, a diarized mean embedding with its speech duration and
-/// capture time. `id` addresses the sample stably across sessions.
-struct VoiceSample: Codable, Equatable, Identifiable {
-    let id: UUID
-    let embedding: [Float]
-    let duration: Float
-    let enrolledAt: Date
-}
-
-/// A speaker's cross-session identity, backed by a capped list of enrollment samples. The vector
-/// matched against is the samples' duration-weighted `centroid`, derived when seeding the matcher
-/// rather than stored. Persisted as `{id, name, samples}`.
-struct Voiceprint: Codable, Equatable {
-    let id: String
-    let name: String?
-    let samples: [VoiceSample]
-    /// When set, this voiceprint was merged into another; lookups follow the redirect to the survivor
-    /// so other sessions still bound to this id resolve instead of falling back to positional.
-    let redirectID: String?
-
-    /// Cap on samples per voiceprint, from `Preferences`. The initializer keeps the newest this many.
-    static var maxSamples: Int {
-        Preferences.voiceprintMaxSamples
-    }
-
-    init(id: String, name: String?, samples: [VoiceSample], redirectID: String? = nil) {
-        self.id = id
-        self.name = name
-        self.samples = Self.capped(samples)
-        self.redirectID = redirectID
-    }
-
-    /// The samples' duration-weighted mean embedding, the vector matched against. A single-sample
-    /// print returns that embedding unchanged.
-    var centroid: [Float] {
-        guard let first = samples.first else { return [] }
-        guard samples.count > 1 else { return first.embedding }
-        var weighted = [Float](repeating: 0, count: first.embedding.count)
-        var weight: Float = 0
-        for sample in samples where sample.embedding.count == weighted.count {
-            weight += sample.duration
-            for index in weighted.indices {
-                weighted[index] += sample.embedding[index] * sample.duration
-            }
-        }
-        guard weight > 0 else { return first.embedding }
-        for index in weighted.indices {
-            weighted[index] /= weight
-        }
-        return weighted
-    }
-
-    /// Total enrolled speech across the samples, seeded into the matcher as the speaker's duration.
-    var totalDuration: Float {
-        samples.reduce(0) { $0 + $1.duration }
-    }
-
-    /// When the newest sample was enrolled, the closest thing to "last heard" for the naming UI.
-    var lastEnrolledAt: Date? {
-        samples.map(\.enrolledAt).max()
-    }
-
-    /// The newest `maxSamples` by enrollment time, dropping the oldest (a no-op at or under the cap).
-    private static func capped(_ samples: [VoiceSample]) -> [VoiceSample] {
-        guard samples.count > maxSamples else { return samples }
-        return Array(samples.sorted { $0.enrolledAt < $1.enrolledAt }.suffix(maxSamples))
-    }
-}
-
-extension Voiceprint: Identifiable {}
-
-extension Voiceprint {
-    /// Follows `redirectID` chains to the surviving voiceprint after merges, or `nil` when the id is
-    /// unknown or the chain breaks. Guards against cycles.
-    static func survivor(of id: String, in voiceprints: [String: Voiceprint]) -> Voiceprint? {
-        var current = id
-        var seen: Set<String> = []
-        while seen.insert(current).inserted, let voiceprint = voiceprints[current] {
-            guard let redirect = voiceprint.redirectID else { return voiceprint }
-            current = redirect
-        }
-        return nil
-    }
-}
-
 enum SpeakerStoreError: Error {
     case invalidEmbedding
     case unknownVoiceprint
@@ -254,6 +169,25 @@ actor SpeakerStore {
         voiceprints[sourceIndex] = Voiceprint(id: source.id, name: nil, samples: [], redirectID: destination.id)
         try save(voiceprints)
         return merged
+    }
+
+    /// The nearest named voiceprint to an embedding and its cosine distance, for warning before a
+    /// deliberate enroll duplicates a voice the user already saved. Considers only named survivors, so
+    /// an unnamed auto-enrollment is never offered as the match. `nil` when there is no named voice or
+    /// the embedding is the wrong size.
+    func nearestNamed(to embedding: [Float]) throws -> (voiceprint: Voiceprint, distance: Float)? {
+        guard embedding.count == SpeakerManager.embeddingSize else { return nil }
+        let named = try load().filter {
+            $0.redirectID == nil && $0.name != nil && $0.centroid.count == SpeakerManager.embeddingSize
+        }
+        guard !named.isEmpty else { return nil }
+        // Seed permissively (threshold 2 spans the cosine-distance range) so the query ranks every
+        // named voice; matches are nearest-first, so `.first` is the closest.
+        let snapshot = matcher(seededWith: named, threshold: 2)
+        guard let match = snapshot.findMatchingSpeakers(with: embedding, speakerThreshold: 2).first,
+              let voiceprint = named.first(where: { $0.id == match.id })
+        else { return nil }
+        return (voiceprint, match.distance)
     }
 
     private func byID(_ voiceprints: [Voiceprint]) -> [String: Voiceprint] {

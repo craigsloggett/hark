@@ -23,6 +23,9 @@ final class LabelingModel {
     private(set) var voiceprintsByID: [String: Voiceprint] = [:]
     /// Surviving voiceprint id to the number of recordings it appears in, for the People inspector.
     private(set) var voiceUsage: [String: Int] = [:]
+    /// A duplicate a deliberate enroll would create: set instead of enrolling, so the UI can offer to
+    /// reuse the existing voice. `nil` when no enroll is awaiting that choice.
+    var pendingEnrollment: PendingEnrollment?
 
     // MARK: Undo
 
@@ -86,6 +89,7 @@ final class LabelingModel {
 
     func loadSelected() async {
         peopleSelection = []
+        pendingEnrollment = nil
         undoStack = []
         guard let selection else {
             detail = nil

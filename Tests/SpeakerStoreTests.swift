@@ -230,6 +230,25 @@ final class SpeakerStoreTests {
         #expect(followed?.id == ada.id)
     }
 
+    @Test func nearestNamedFindsTheClosestSavedVoice() async throws {
+        let store = SpeakerStore(directory: directory)
+        let ada = try await store.enroll(embedding: embedding([1]), duration: 3, name: "Ada")
+        _ = try await store.enroll(embedding: embedding([0, 1]), duration: 3, name: "Bo")
+
+        // An embedding near Ada resolves to Ada with a small distance, the duplicate-guard signal.
+        let near = try await store.nearestNamed(to: embedding([1, 0.02]))
+        #expect(near?.voiceprint.id == ada.id)
+        #expect((near?.distance ?? 1) < 0.1)
+    }
+
+    @Test func nearestNamedIgnoresUnnamedVoices() async throws {
+        let store = SpeakerStore(directory: directory)
+        _ = try await store.enroll(embedding: embedding([1]), duration: 3, name: nil)
+        // No named voice to match, so an unnamed near-identical print is not offered as a duplicate.
+        let near = try await store.nearestNamed(to: embedding([1, 0.02]))
+        #expect(near == nil)
+    }
+
     @Test func replaceAllRestoresAnEarlierSnapshot() async throws {
         let store = SpeakerStore(directory: directory)
         let ada = try await store.enroll(embedding: embedding([1]), duration: 3, name: "Ada")

@@ -95,7 +95,21 @@ extension LabelingModel {
         await enrollAndBind(token: token, name: name, undoLabel: "Add Voice")
     }
 
+    /// Enrolls a new voiceprint for this speaker, unless it would duplicate a voice Hark already knows,
+    /// in which case it defers to a confirmation (`pendingEnrollment`) instead of forking the identity.
     private func enrollAndBind(token: String, name: String?, undoLabel: String) async {
+        guard detail?.overlay[token]?.embedding != nil else { return }
+        if let duplicate = await probableDuplicate(token: token, name: name) {
+            pendingEnrollment = PendingEnrollment(
+                token: token, name: name, undoLabel: undoLabel,
+                match: duplicate.match, reason: duplicate.reason
+            )
+            return
+        }
+        await performEnroll(token: token, name: name, undoLabel: undoLabel)
+    }
+
+    private func performEnroll(token: String, name: String?, undoLabel: String) async {
         guard var detail, let embedding = detail.overlay[token]?.embedding else { return }
         recordUndo(undoLabel)
         let duration = detail.overlay[token]?.duration ?? 0
@@ -107,6 +121,66 @@ extension LabelingModel {
         }
         var speaker = detail.overlay[token] ?? SessionSpeaker()
         speaker.voiceprintID = voiceprint.id
+        speaker.nameOverride = nil
+        speaker.matchDistance = nil
+        speaker.confirmed = true
+        detail.overlay[token] = speaker
+        await apply(detail, reloadDatabase: true)
+    }
+
+    /// The saved voice a new enroll would likely duplicate: one already using the typed name, or one
+    /// within the confident-match distance of this speaker's voice. `nil` when the enroll looks distinct.
+    func probableDuplicate(
+        token: String, name: String?
+    ) async -> (match: Voiceprint, reason: PendingEnrollment.Reason)? {
+        let trimmed = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty, let sameName = namedVoice(matching: trimmed) {
+            return (sameName, .sameName)
+        }
+        guard let embedding = detail?.overlay[token]?.embedding,
+              let near = try? await SpeakerStore.shared.nearestNamed(to: embedding),
+              near.distance <= Float(Preferences.speakerConfidentMatchThreshold)
+        else { return nil }
+        return (near.voiceprint, .nearDuplicate(near.distance))
+    }
+
+    /// A non-tombstoned saved voice whose name equals `name`, case-insensitively.
+    private func namedVoice(matching name: String) -> Voiceprint? {
+        voiceprintsByID.values.first { voiceprint in
+            voiceprint.redirectID == nil && voiceprint.name?.caseInsensitiveCompare(name) == .orderedSame
+        }
+    }
+
+    /// Confirms the pending enroll as a genuinely separate, new voice.
+    func createPendingAsNewVoice() async {
+        guard let pending = pendingEnrollment else { return }
+        pendingEnrollment = nil
+        await performEnroll(token: pending.token, name: pending.name, undoLabel: pending.undoLabel)
+    }
+
+    /// Resolves the pending enroll by binding this speaker to the existing voice and teaching it this clip.
+    func addPendingToExistingVoice() async {
+        guard let pending = pendingEnrollment else { return }
+        pendingEnrollment = nil
+        await useExistingVoice(token: pending.token, id: pending.match.id)
+    }
+
+    func cancelPendingEnrollment() {
+        pendingEnrollment = nil
+    }
+
+    /// Binds a speaker to a known voice and teaches it this clip, the "yes, it's them" answer to a
+    /// duplicate warning. The deliberate affirmation makes teaching warranted here, unlike a casual `rebind`.
+    private func useExistingVoice(token: String, id: String) async {
+        guard var detail else { return }
+        recordUndo("Use Saved Voice")
+        if let embedding = detail.overlay[token]?.embedding {
+            try? await SpeakerStore.shared.addSample(
+                toVoiceprint: id, embedding: embedding, duration: detail.overlay[token]?.duration ?? 0
+            )
+        }
+        var speaker = detail.overlay[token] ?? SessionSpeaker()
+        speaker.voiceprintID = id
         speaker.nameOverride = nil
         speaker.matchDistance = nil
         speaker.confirmed = true

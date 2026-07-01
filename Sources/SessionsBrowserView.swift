@@ -53,5 +53,25 @@ struct SessionsBrowserView: View {
         }
         .onAppear { WindowActivation.shared.didOpen() }
         .onDisappear { WindowActivation.shared.didClose() }
+        .confirmationDialog(
+            model.pendingEnrollment?.dialogTitle ?? "",
+            isPresented: pendingEnrollmentPresented,
+            titleVisibility: .visible,
+            presenting: model.pendingEnrollment
+        ) { pending in
+            Button(pending.useButtonTitle) { Task { await model.addPendingToExistingVoice() } }
+            Button(pending.createButtonTitle) { Task { await model.createPendingAsNewVoice() } }
+            Button("Cancel", role: .cancel) {}
+        } message: { pending in
+            Text(pending.dialogMessage)
+        }
+    }
+
+    /// Drives the duplicate-voice confirmation from the model's pending enroll; dismissing cancels it.
+    private var pendingEnrollmentPresented: Binding<Bool> {
+        Binding(
+            get: { model.pendingEnrollment != nil },
+            set: { if !$0 { model.cancelPendingEnrollment() } }
+        )
     }
 }
