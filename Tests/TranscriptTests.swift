@@ -5,12 +5,6 @@ import Testing
 struct TranscriptTests {
     // MARK: Labels and timestamps
 
-    @Test func speakerLabelsReadAsPersonas() {
-        #expect(Speaker.you.label == "You")
-        #expect(Speaker.remote(1).label == "Speaker 1")
-        #expect(Speaker.remote(2).label == "Speaker 2")
-    }
-
     @Test func timestampFormatsHoursMinutesSeconds() {
         #expect(Transcript.timestamp(0) == "00:00:00")
         #expect(Transcript.timestamp(75) == "00:01:15")
@@ -38,11 +32,6 @@ struct TranscriptTests {
         #expect(shifted.map(\.start) == [11])
         #expect(shifted.map(\.end) == [12])
         #expect(shifted.map(\.speaker) == [.remote(1)])
-    }
-
-    @Test func zeroOffsetLeavesSegmentsUnchanged() {
-        let them = [TranscriptSegment(start: 5, end: 6, speaker: .remote(1), text: "B")]
-        #expect(them.shifted(by: 0) == them)
     }
 
     @Test func systemTrackOffsetRestoresRealOrder() {

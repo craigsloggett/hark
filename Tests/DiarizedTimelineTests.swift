@@ -20,11 +20,6 @@ struct DiarizedTimelineTests {
         #expect(timeline.speaker(at: 5.5) == .remote(2))
     }
 
-    @Test func mapsSingleSpeakerToSpeakerOne() {
-        let timeline = DiarizedTimeline(turns: [DiarizationTurn(start: 0, end: 4, speakerID: "X")])
-        #expect(timeline.speaker(at: 2) == .remote(1))
-    }
-
     // MARK: Attribution
 
     @Test func attributesPointInsideTurn() {

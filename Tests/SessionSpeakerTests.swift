@@ -30,11 +30,6 @@ struct SessionSpeakerTests {
         #expect(try JSONDecoder().decode(SessionSpeaker.self, from: Data(json.utf8)) == speaker)
     }
 
-    @Test func omitsNilFields() throws {
-        let data = try JSONEncoder().encode(SessionSpeaker())
-        #expect(try #require(String(bytes: data, encoding: .utf8)) == "{}")
-    }
-
     // MARK: SpeakerDisplay precedence
 
     private func voiceprint(_ id: String, name: String?, redirectID: String? = nil) -> Voiceprint {

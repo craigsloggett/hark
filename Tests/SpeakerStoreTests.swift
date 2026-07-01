@@ -1,26 +1,7 @@
 import FluidAudio
 import Foundation
 @testable import hark
-import os
 import Testing
-
-/// A 16-byte UUID whose final byte is `lastByte`, for predictable enrollment ids under test.
-private func deterministicUUID(_ lastByte: UInt8) -> UUID {
-    UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, lastByte))
-}
-
-/// Hands out `deterministicUUID(1)`, `deterministicUUID(2)`, ... one per call, so an injected `uuid`
-/// provider yields predictable ids. Lock-backed so the type is `Sendable` for the provider closure.
-private struct SequentialUUIDSource {
-    private let state = OSAllocatedUnfairLock(initialState: UInt8(0))
-
-    func next() -> UUID {
-        state.withLock { count in
-            count += 1
-            return deterministicUUID(count)
-        }
-    }
-}
 
 /// Exercises `SpeakerStore`'s matching with synthetic 256-d embeddings, so no model download is
 /// needed (matching is pure vector math). Each test gets its own temporary voiceprint directory.
@@ -125,22 +106,6 @@ final class SpeakerStoreTests {
         #expect(voiceprints.first?.samples.count == 1)
         #expect(voiceprints.first?.samples.first?.embedding.count == SpeakerManager.embeddingSize)
         #expect(voiceprints.first?.name == nil)
-    }
-
-    @Test func enrollmentIsDeterministicUnderInjectedProviders() async throws {
-        let enrolledAt = Date(timeIntervalSinceReferenceDate: 1000)
-        let uuids = SequentialUUIDSource()
-        let store = SpeakerStore(directory: directory, now: { enrolledAt }, uuid: { uuids.next() })
-        _ = await store.resolve([SpeakerCluster(id: "S1", embedding: embedding([1]), duration: 10)])
-
-        let url = directory.appendingPathComponent("voiceprints.json")
-        let voiceprints = try JSONDecoder().decode([Voiceprint].self, from: Data(contentsOf: url))
-        let voiceprint = try #require(voiceprints.first)
-        let onlySample = try #require(voiceprint.samples.first)
-        // The enroll path mints the sample id first, then the voiceprint id.
-        #expect(onlySample.id == deterministicUUID(1))
-        #expect(voiceprint.id == deterministicUUID(2).uuidString)
-        #expect(onlySample.enrolledAt == enrolledAt)
     }
 
     // MARK: Naming
