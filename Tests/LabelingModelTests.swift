@@ -9,7 +9,7 @@ import Testing
 struct LabelingModelTests {
     @Test func flagsAnEnrollThatReusesAnExistingName() async {
         let detail = SessionDetail(
-            url: URL(fileURLWithPath: "/tmp/hark-test"),
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("hark-test"),
             segments: [],
             overlay: ["speaker1": SessionSpeaker(embedding: [1], duration: 5)]
         )
@@ -47,7 +47,7 @@ struct LabelingModelTests {
 
     @Test func allowsAnEnrollWithAFreshName() async {
         let detail = SessionDetail(
-            url: URL(fileURLWithPath: "/tmp/hark-test"),
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("hark-test"),
             segments: [],
             overlay: ["speaker1": SessionSpeaker(duration: 5)]
         )

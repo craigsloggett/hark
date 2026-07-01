@@ -247,11 +247,7 @@ actor SpeakerStore {
         threshold: Float,
         enrollFloor: Float
     ) -> (resolved: [String: SpeakerIdentity], enrolled: [Voiceprint]) {
-        var byID: [String: Voiceprint] = [:]
-        for voiceprint in known {
-            byID[voiceprint.id] = voiceprint
-        }
-
+        let byID = byID(known)
         var claimed: Set<String> = []
         var enrolled: [Voiceprint] = []
         var resolved: [String: SpeakerIdentity] = [:]

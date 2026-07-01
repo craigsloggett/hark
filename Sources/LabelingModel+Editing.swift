@@ -66,12 +66,7 @@ extension LabelingModel {
     func rebind(token: String, toVoiceprint id: String) async {
         guard var detail else { return }
         recordUndo("Assign Voice")
-        var speaker = detail.overlay[token] ?? SessionSpeaker()
-        speaker.voiceprintID = id
-        speaker.nameOverride = nil
-        speaker.matchDistance = nil
-        speaker.confirmed = true
-        detail.overlay[token] = speaker
+        detail.overlay[token, default: SessionSpeaker()].bind(to: id)
         await apply(detail, reloadDatabase: false)
     }
 
@@ -122,12 +117,7 @@ extension LabelingModel {
             discardLastUndoStep()
             return
         }
-        var speaker = detail.overlay[token] ?? SessionSpeaker()
-        speaker.voiceprintID = voiceprint.id
-        speaker.nameOverride = nil
-        speaker.matchDistance = nil
-        speaker.confirmed = true
-        detail.overlay[token] = speaker
+        detail.overlay[token, default: SessionSpeaker()].bind(to: voiceprint.id)
         await apply(detail, reloadDatabase: true)
     }
 
@@ -168,10 +158,6 @@ extension LabelingModel {
         await useExistingVoice(token: pending.token, id: pending.match.id)
     }
 
-    func cancelPendingEnrollment() {
-        pendingEnrollment = nil
-    }
-
     /// Binds a speaker to a known voice and teaches it this clip, the "yes, it's them" answer to a
     /// duplicate warning. The deliberate affirmation makes teaching warranted here, unlike a casual `rebind`.
     private func useExistingVoice(token: String, id: String) async {
@@ -184,12 +170,7 @@ extension LabelingModel {
                 )
             }
         }
-        var speaker = detail.overlay[token] ?? SessionSpeaker()
-        speaker.voiceprintID = id
-        speaker.nameOverride = nil
-        speaker.matchDistance = nil
-        speaker.confirmed = true
-        detail.overlay[token] = speaker
+        detail.overlay[token, default: SessionSpeaker()].bind(to: id)
         await apply(detail, reloadDatabase: true)
     }
 

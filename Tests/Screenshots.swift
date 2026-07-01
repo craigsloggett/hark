@@ -92,7 +92,9 @@ struct ScreenshotRenderer {
             "speaker5": SessionSpeaker(voiceprintID: "vp-recognized", embedding: embedding, duration: 20),
         ]
         let detail = SessionDetail(
-            url: URL(fileURLWithPath: "/tmp/hark-preview"), segments: segments, overlay: overlay
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("hark-preview"),
+            segments: segments,
+            overlay: overlay
         )
         // Priya and the recognized-but-unnamed voice share an embedding, so they read as a likely
         // duplicate in the Voices manager's suggestions band.

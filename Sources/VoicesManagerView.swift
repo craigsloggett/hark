@@ -24,35 +24,15 @@ struct VoicesManagerView: View {
         }
         .navigationTitle("Voices")
         .navigationSubtitle(subtitle)
-        .alert("Rename Voice", isPresented: renamePresented, presenting: renamingID) { id in
-            TextField("Name", text: $renameDraft)
-            Button("Cancel", role: .cancel) {}
-            Button("Save") { Task { await model.renameVoice(id: id, to: renameDraft) } }
-        } message: { _ in
-            Text("Renames this saved voice everywhere it is used.")
+        .renameVoiceAlert(id: $renamingID, draft: $renameDraft) { id, name in
+            await model.renameVoice(id: id, to: name)
         }
-        .confirmationDialog(
-            "Forget this voice?",
-            isPresented: forgetPresented,
-            titleVisibility: .visible,
-            presenting: forgettingID
-        ) { id in
-            Button("Forget Voice", role: .destructive) { Task { await model.forgetVoice(id: id) } }
-            Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("Hark stops recognizing this voice. Turns labeled with it become unlabeled. You can undo this.")
-        }
-        .confirmationDialog("Merge these two voices?", isPresented: $confirmingMerge, titleVisibility: .visible) {
-            Button("Merge", role: .destructive) { Task { await model.mergeSelectedVoices() } }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("They become one saved voice, keeping the named one. You can undo this.")
-        }
+        .forgetVoiceDialog(id: $forgettingID) { await model.forgetVoice(id: $0) }
+        .mergeVoicesDialog(isPresented: $confirmingMerge) { await model.mergeSelectedVoices() }
     }
 
     private var subtitle: String {
-        let count = model.voices.count
-        return "\(count) saved voice\(count == 1 ? "" : "s")"
+        String(count: model.voices.count, "saved voice")
     }
 
     private var content: some View {
@@ -119,14 +99,6 @@ struct VoicesManagerView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
     }
-
-    private var renamePresented: Binding<Bool> {
-        Binding(get: { renamingID != nil }, set: { if !$0 { renamingID = nil } })
-    }
-
-    private var forgetPresented: Binding<Bool> {
-        Binding(get: { forgettingID != nil }, set: { if !$0 { forgettingID = nil } })
-    }
 }
 
 private struct VoiceRow: View {
@@ -148,8 +120,6 @@ private struct VoiceRow: View {
     }
 
     private var subtitle: String {
-        let samples = "\(voice.sampleCount) sample\(voice.sampleCount == 1 ? "" : "s")"
-        let recordings = "in \(voice.recordingCount) recording\(voice.recordingCount == 1 ? "" : "s")"
-        return "\(samples) · \(recordings)"
+        "\(String(count: voice.sampleCount, "sample")) · in \(String(count: voice.recordingCount, "recording"))"
     }
 }

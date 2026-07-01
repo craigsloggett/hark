@@ -248,7 +248,7 @@ final class LabelingModel {
     }
 
     var canMerge: Bool {
-        peopleSelection.count == 2 && !peopleSelection.contains("you")
+        peopleSelection.count == 2 && !peopleSelection.contains(Speaker.you.token)
     }
 
     // MARK: Edit plumbing
@@ -277,9 +277,9 @@ final class LabelingModel {
     private func persist() async {
         guard let detail else { return }
         await attempt("Save speaker overlay") { try Session(url: detail.url).writeSpeakers(detail.overlay) }
-        let all = await attempt("Load voiceprints") { try await SpeakerStore.shared.voiceprints() } ?? []
+        // `finishEdit` refreshes the snapshot before persisting whenever the database changed.
         await attempt("Re-render transcript") {
-            try TranscriptionService.rerenderTranscript(at: detail.url, voiceprints: all)
+            try TranscriptionService.rerenderTranscript(at: detail.url, voiceprints: Array(voiceprintsByID.values))
         }
     }
 

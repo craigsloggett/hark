@@ -41,8 +41,8 @@ private struct TurnGroupView: View {
                 if !isYou {
                     SpeakerChip(token: group.token, model: model)
                 }
-                ForEach(Array(group.segments.enumerated()), id: \.offset) { _, segment in
-                    bubble(segment.text)
+                ForEach(group.segments.indices, id: \.self) { index in
+                    bubble(group.segments[index].text)
                 }
             }
             if !isYou { Spacer(minLength: 64) }

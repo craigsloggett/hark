@@ -81,9 +81,6 @@ struct SessionsBrowserView: View {
 
     /// Drives the duplicate-voice confirmation from the model's pending enroll; dismissing cancels it.
     private var pendingEnrollmentPresented: Binding<Bool> {
-        Binding(
-            get: { model.pendingEnrollment != nil },
-            set: { if !$0 { model.cancelPendingEnrollment() } }
-        )
+        Binding(presence: Bindable(model).pendingEnrollment)
     }
 }

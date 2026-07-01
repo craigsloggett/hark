@@ -34,6 +34,15 @@ struct SessionSpeaker: Equatable {
         self.embedding = embedding
         self.duration = duration
     }
+
+    /// Binds to a saved voice as a deliberate user choice: the transcript label and any tentative
+    /// match state give way to the confirmed identity.
+    mutating func bind(to voiceprintID: String) {
+        self.voiceprintID = voiceprintID
+        nameOverride = nil
+        matchDistance = nil
+        confirmed = true
+    }
 }
 
 extension SessionSpeaker: Codable {

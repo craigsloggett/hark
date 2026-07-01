@@ -23,7 +23,7 @@ struct PeopleInspectorView: View {
 
             List(model.rosterTokens, id: \.self, selection: $model.peopleSelection) { token in
                 PersonRow(token: token, model: model)
-                    .selectionDisabled(token == "you")
+                    .selectionDisabled(token == Speaker.you.token)
                     .contextMenu { rowMenu(token) }
             }
 
@@ -41,32 +41,11 @@ struct PeopleInspectorView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
         }
-        .alert("Rename Voice", isPresented: renamePresented, presenting: renamingID) { id in
-            TextField("Name", text: $renameDraft)
-            Button("Cancel", role: .cancel) {}
-            Button("Save") { Task { await model.renameVoice(id: id, to: renameDraft) } }
-        } message: { _ in
-            Text("Renames this saved voice everywhere it is used.")
+        .renameVoiceAlert(id: $renamingID, draft: $renameDraft) { id, name in
+            await model.renameVoice(id: id, to: name)
         }
-        .confirmationDialog(
-            "Forget this voice?",
-            isPresented: forgetPresented,
-            titleVisibility: .visible,
-            presenting: forgettingID
-        ) { id in
-            Button("Forget Voice", role: .destructive) { Task { await model.forgetVoice(id: id) } }
-            Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("Hark stops recognizing this voice. Turns labeled with it become unlabeled. You can undo this.")
-        }
-        .confirmationDialog("Merge these two voices?", isPresented: $confirmingMerge, titleVisibility: .visible) {
-            Button("Merge", role: .destructive) {
-                Task { await model.mergeSelected() }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("They become one saved voice, keeping the named one. You can undo this.")
-        }
+        .forgetVoiceDialog(id: $forgettingID) { await model.forgetVoice(id: $0) }
+        .mergeVoicesDialog(isPresented: $confirmingMerge) { await model.mergeSelected() }
     }
 
     @ViewBuilder
@@ -81,14 +60,6 @@ struct PeopleInspectorView: View {
             }
         }
     }
-
-    private var renamePresented: Binding<Bool> {
-        Binding(get: { renamingID != nil }, set: { if !$0 { renamingID = nil } })
-    }
-
-    private var forgetPresented: Binding<Bool> {
-        Binding(get: { forgettingID != nil }, set: { if !$0 { forgettingID = nil } })
-    }
 }
 
 private struct PersonRow: View {
@@ -97,7 +68,7 @@ private struct PersonRow: View {
 
     var body: some View {
         let name = model.displayName(token: token)
-        let isYou = token == "you"
+        let isYou = token == Speaker.you.token
         HStack(spacing: 9) {
             Circle()
                 .fill(isYou ? Color.accentColor : model.color(for: token))
@@ -113,14 +84,12 @@ private struct PersonRow: View {
     }
 
     private func subtitle(isYou: Bool) -> String {
-        let turns = model.turnCount(token: token)
-        let turnText = "\(turns) turn\(turns == 1 ? "" : "s")"
+        let turnText = String(count: model.turnCount(token: token), "turn")
         guard !isYou else { return turnText }
-        let samples = model.sampleCount(token: token)
-        var parts = [turnText, "\(samples) sample\(samples == 1 ? "" : "s")"]
+        var parts = [turnText, String(count: model.sampleCount(token: token), "sample")]
         let others = model.otherRecordings(token: token)
         if others > 0 {
-            parts.append("in \(others) other\(others == 1 ? "" : "s")")
+            parts.append("in \(String(count: others, "other"))")
         }
         return parts.joined(separator: " · ")
     }
