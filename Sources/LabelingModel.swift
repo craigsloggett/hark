@@ -371,3 +371,23 @@ extension LabelingModel {
         try? TranscriptionService.rerenderTranscript(at: detail.url, voiceprints: all)
     }
 }
+
+#if DEBUG
+    extension LabelingModel {
+        /// A model wired to a fixed transcript and voice set, for SwiftUI previews and screenshot
+        /// rendering without touching disk or `SpeakerStore`.
+        static func preview(
+            detail: SessionDetail,
+            voiceprints: [Voiceprint] = [],
+            usage: [String: Int] = [:]
+        ) -> LabelingModel {
+            let model = LabelingModel()
+            model.detail = detail
+            model.voiceprintsByID = Dictionary(
+                voiceprints.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }
+            )
+            model.voiceUsage = usage
+            return model
+        }
+    }
+#endif
