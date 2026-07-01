@@ -219,4 +219,21 @@ final class SpeakerStoreTests {
         let followed = try await store.voiceprint(id: other.id)
         #expect(followed?.id == ada.id)
     }
+
+    @Test func replaceAllRestoresAnEarlierSnapshot() async throws {
+        let store = SpeakerStore(directory: directory)
+        let ada = try await store.enroll(embedding: embedding([1]), duration: 3, name: "Ada")
+        let other = try await store.enroll(embedding: embedding([0, 1]), duration: 4, name: nil)
+        let snapshot = try await store.voiceprints() // Ada and the unnamed voice, both intact.
+
+        // Merge tombstones the source; restoring the snapshot rolls the whole database back, the undo
+        // primitive the labeling window relies on.
+        _ = try await store.merge(other.id, into: ada.id)
+        try await store.replaceAll(snapshot)
+
+        let restored = try await store.voiceprints()
+        #expect(Set(restored.map(\.id)) == Set([ada.id, other.id]))
+        #expect(restored.first { $0.id == other.id }?.redirectID == nil)
+        #expect(restored.first { $0.id == ada.id }?.samples.count == 1)
+    }
 }

@@ -1,9 +1,14 @@
 import SwiftUI
 
-/// The People roster for the current transcript: who spoke, with turn and sample counts. Selecting
-/// two speakers enables Merge, which fixes a voice the diarizer split into two.
+/// The People roster for the current transcript: who spoke, with turn and sample counts. A saved voice
+/// can be renamed globally or forgotten from its row's context menu. Selecting two speakers enables
+/// Merge, which fixes a voice the diarizer split into two.
 struct PeopleInspectorView: View {
     @Bindable var model: LabelingModel
+    @State private var renamingID: String?
+    @State private var renameDraft = ""
+    @State private var forgettingID: String?
+    @State private var confirmingMerge = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,13 +24,14 @@ struct PeopleInspectorView: View {
             List(model.rosterTokens, id: \.self, selection: $model.peopleSelection) { token in
                 PersonRow(token: token, model: model)
                     .selectionDisabled(token == "you")
+                    .contextMenu { rowMenu(token) }
             }
 
             Divider()
 
             VStack(alignment: .leading, spacing: 6) {
                 Button("Merge Selected") {
-                    Task { await model.mergeSelected() }
+                    confirmingMerge = true
                 }
                 .disabled(!model.canMerge)
                 Text("Same person split into two voices? Select both and merge.")
@@ -35,6 +41,53 @@ struct PeopleInspectorView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
         }
+        .alert("Rename Voice", isPresented: renamePresented, presenting: renamingID) { id in
+            TextField("Name", text: $renameDraft)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") { Task { await model.renameVoice(id: id, to: renameDraft) } }
+        } message: { _ in
+            Text("Renames this saved voice everywhere it is used.")
+        }
+        .confirmationDialog(
+            "Forget this voice?",
+            isPresented: forgetPresented,
+            titleVisibility: .visible,
+            presenting: forgettingID
+        ) { id in
+            Button("Forget Voice", role: .destructive) { Task { await model.forgetVoice(id: id) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Hark stops recognizing this voice. Turns labeled with it become unlabeled. You can undo this.")
+        }
+        .confirmationDialog("Merge these two voices?", isPresented: $confirmingMerge, titleVisibility: .visible) {
+            Button("Merge", role: .destructive) {
+                Task { await model.mergeSelected() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("They become one saved voice, keeping the named one. You can undo this.")
+        }
+    }
+
+    @ViewBuilder
+    private func rowMenu(_ token: String) -> some View {
+        if case let .savedVoice(id) = model.binding(token: token) {
+            Button("Rename Saved Voice…") {
+                renameDraft = model.displayName(token: token) ?? ""
+                renamingID = id
+            }
+            Button("Forget This Voice…", role: .destructive) {
+                forgettingID = id
+            }
+        }
+    }
+
+    private var renamePresented: Binding<Bool> {
+        Binding(get: { renamingID != nil }, set: { if !$0 { renamingID = nil } })
+    }
+
+    private var forgetPresented: Binding<Bool> {
+        Binding(get: { forgettingID != nil }, set: { if !$0 { forgettingID = nil } })
     }
 }
 
@@ -64,6 +117,11 @@ private struct PersonRow: View {
         let turnText = "\(turns) turn\(turns == 1 ? "" : "s")"
         guard !isYou else { return turnText }
         let samples = model.sampleCount(token: token)
-        return "\(turnText) · \(samples) sample\(samples == 1 ? "" : "s")"
+        var parts = [turnText, "\(samples) sample\(samples == 1 ? "" : "s")"]
+        let others = model.otherRecordings(token: token)
+        if others > 0 {
+            parts.append("in \(others) other\(others == 1 ? "" : "s")")
+        }
+        return parts.joined(separator: " · ")
     }
 }

@@ -20,6 +20,16 @@ struct SessionsBrowserView: View {
                 .toolbar {
                     ToolbarItem {
                         Button {
+                            Task { await model.undo() }
+                        } label: {
+                            Label("Undo", systemImage: "arrow.uturn.backward")
+                        }
+                        .disabled(!model.canUndo)
+                        .help(model.undoActionLabel ?? "Nothing to undo")
+                        .keyboardShortcut("z", modifiers: .command)
+                    }
+                    ToolbarItem {
+                        Button {
                             showsPeople.toggle()
                         } label: {
                             Label("People", systemImage: "person.2")

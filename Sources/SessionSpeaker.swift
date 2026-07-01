@@ -46,6 +46,18 @@ extension SessionSpeaker: Codable {
     }
 }
 
+/// A chip's editing state, the three mutually exclusive cases the labeling UI renders and offers
+/// actions for. Bound-to-a-saved-voice takes precedence over a transcript label, so a saved voice
+/// shown under a custom label is still a `savedVoice`.
+enum SpeakerBinding: Equatable {
+    /// No label and no bound voice: a dashed "Speaker N" chip.
+    case unknown
+    /// A transcript-only name, not tied to any saved voice.
+    case localLabel(String)
+    /// Bound to a cross-session voiceprint (by its stored, pre-redirect id).
+    case savedVoice(id: String)
+}
+
 /// Resolves a session speaker's display name, the single source of truth shared by the chat, the
 /// transcript rendering, and the People roster.
 enum SpeakerDisplay {
@@ -72,5 +84,22 @@ enum SpeakerDisplay {
         overlay.keys.reduce(into: [:]) { result, token in
             result[token] = name(token: token, overlay: overlay, voiceprints: voiceprints)
         }
+    }
+
+    /// Classifies a token's editing state so the chip and popover offer the right actions. A binding
+    /// to a since-forgotten voiceprint resolves to nothing, so it degrades to its label or positional.
+    static func binding(
+        token: String,
+        overlay: [String: SessionSpeaker],
+        voiceprints: [String: Voiceprint]
+    ) -> SpeakerBinding {
+        let speaker = overlay[token]
+        if let id = speaker?.voiceprintID, Voiceprint.survivor(of: id, in: voiceprints) != nil {
+            return .savedVoice(id: id)
+        }
+        if let override = speaker?.nameOverride, !override.isEmpty {
+            return .localLabel(override)
+        }
+        return .unknown
     }
 }

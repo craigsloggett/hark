@@ -201,6 +201,11 @@ actor SpeakerStore {
         try save(voiceprints.filter { $0.id != id })
     }
 
+    /// Overwrites the whole database (the labeling window's undo primitive); tombstones are kept as given.
+    func replaceAll(_ voiceprints: [Voiceprint]) throws {
+        try save(voiceprints)
+    }
+
     /// Enrolls a brand-new voiceprint from a diarized embedding, e.g. when the labeling window adds a
     /// new voice. A deliberate action, so it skips the automatic enrollment's duration floor.
     /// - Throws: `SpeakerStoreError.invalidEmbedding` when the embedding is the wrong size.

@@ -68,4 +68,34 @@ struct SessionSpeakerTests {
         let byID = ["v1": voiceprint("v1", name: "Ada")]
         #expect(SpeakerDisplay.names(overlay: overlay, voiceprints: byID) == ["speaker1": "Ada"])
     }
+
+    // MARK: SpeakerBinding classification
+
+    @Test func bindingIsUnknownWithoutLabelOrVoice() {
+        let overlay = ["speaker1": SessionSpeaker()]
+        #expect(SpeakerDisplay.binding(token: "speaker1", overlay: overlay, voiceprints: [:]) == .unknown)
+        // A missing token is unknown too.
+        #expect(SpeakerDisplay.binding(token: "absent", overlay: overlay, voiceprints: [:]) == .unknown)
+    }
+
+    @Test func bindingIsLocalLabelForAnOverrideOnly() {
+        let overlay = ["speaker1": SessionSpeaker(nameOverride: "Chair")]
+        #expect(SpeakerDisplay.binding(token: "speaker1", overlay: overlay, voiceprints: [:]) == .localLabel("Chair"))
+    }
+
+    @Test func bindingIsSavedVoiceEvenWhenOverridden() {
+        let overlay = ["speaker1": SessionSpeaker(voiceprintID: "v1", nameOverride: "Chair")]
+        let byID = ["v1": voiceprint("v1", name: "Ada")]
+        // A bound voice wins over the transcript label, so saved-voice actions apply.
+        #expect(SpeakerDisplay.binding(token: "speaker1", overlay: overlay, voiceprints: byID) == .savedVoice(id: "v1"))
+    }
+
+    @Test func bindingDegradesWhenTheVoiceIsForgotten() {
+        // The binding points at a voiceprint that is no longer in the database.
+        let boundOnly = ["speaker1": SessionSpeaker(voiceprintID: "gone")]
+        #expect(SpeakerDisplay.binding(token: "speaker1", overlay: boundOnly, voiceprints: [:]) == .unknown)
+        // With a surviving label it falls back to that label rather than a dead binding.
+        let labeled = ["speaker1": SessionSpeaker(voiceprintID: "gone", nameOverride: "Chair")]
+        #expect(SpeakerDisplay.binding(token: "speaker1", overlay: labeled, voiceprints: [:]) == .localLabel("Chair"))
+    }
 }

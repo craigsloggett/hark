@@ -56,4 +56,22 @@ final class SessionLibrary {
         )
         return try SessionDetail(url: url, segments: segments, overlay: session.loadSpeakers())
     }
+
+    /// Counts, per surviving voiceprint id, how many recordings bind at least one speaker to it, so the
+    /// People inspector can show where a saved voice has been heard. Follows merge redirects, and a
+    /// session whose overlay can't be read is skipped rather than failing the whole tally.
+    func voiceUsage(resolving voiceprints: [String: Voiceprint]) -> [String: Int] {
+        var counts: [String: Int] = [:]
+        for summary in sessions {
+            guard let overlay = try? Session(url: summary.url).loadSpeakers() else { continue }
+            let survivors = Set(overlay.values.compactMap { speaker -> String? in
+                guard let id = speaker.voiceprintID else { return nil }
+                return Voiceprint.survivor(of: id, in: voiceprints)?.id
+            })
+            for id in survivors {
+                counts[id, default: 0] += 1
+            }
+        }
+        return counts
+    }
 }
