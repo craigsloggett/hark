@@ -16,8 +16,8 @@ actor Transcriber {
 
     /// Transcribes one 16 kHz mono track into tokens carrying per-token start/end times.
     /// - Parameters:
-    ///   - locale: hints the multilingual model's script filtering; ignored when its language
-    ///     isn't one Parakeet recognizes.
+    ///   - locale: hints the multilingual model's script filtering (ignored when its language
+    ///     isn't one Parakeet recognizes).
     /// - Returns: the timed tokens, or an empty array when the track is silent or too short.
     func tokens(in fileURL: URL, locale: Locale) async throws -> [TimedToken] {
         let audioFile: AVAudioFile
@@ -51,7 +51,11 @@ actor Transcriber {
         if let manager { return manager }
         do {
             let models = try await AsrModels.downloadAndLoad(version: .v3)
-            let loaded = AsrManager(models: models)
+            let config = ASRConfig(
+                parallelChunkConcurrency: Preferences.asrParallelChunkConcurrency,
+                dualDecodeArbitration: Preferences.asrUsesDualDecodeArbitration
+            )
+            let loaded = AsrManager(config: config, models: models)
             manager = loaded
             return loaded
         } catch {
@@ -66,7 +70,6 @@ actor Transcriber {
         return Language(rawValue: code)
     }
 
-    /// Logs a one-line transcription summary.
     private func logSummary(_ result: ASRResult, tokens: [TimedToken], for fileURL: URL) {
         let summary = String(
             format: "%d tokens, %.1fs audio, confidence %.2f, %.1fx realtime",

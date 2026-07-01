@@ -2,12 +2,20 @@ import Foundation
 
 enum Speaker: Equatable {
     case you
-    case remote(Int) // 1-based: `.remote(1)` is "Speaker 1"
+    case remote(Int) // 1-based, so `.remote(1)` is "Speaker 1"
 
     var label: String {
         switch self {
         case .you: "You"
         case let .remote(index): "Speaker \(index)"
+        }
+    }
+
+    /// The on-disk key shared by `transcript.json`'s encoding and the `speakers.json` overlay.
+    var token: String {
+        switch self {
+        case .you: "you"
+        case let .remote(index): "speaker\(index)"
         }
     }
 }
@@ -17,13 +25,9 @@ extension Speaker: Codable {
         case unrecognizedToken(String)
     }
 
-    /// Encodes as a single token (`you`, `speaker1`, `speaker2`, etc.).
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        switch self {
-        case .you: try container.encode("you")
-        case let .remote(index): try container.encode("speaker\(index)")
-        }
+        try container.encode(token)
     }
 
     init(from decoder: Decoder) throws {

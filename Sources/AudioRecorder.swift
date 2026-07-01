@@ -37,7 +37,6 @@ final class AudioRecorder {
         }
     }
 
-    /// Stops the active recording and immediately transcribes it to disk.
     func stopAndTranscribe() {
         stop()
         transcribeLastSession()
@@ -74,8 +73,8 @@ final class AudioRecorder {
         transcriptionState = .running
         Task {
             do {
-                let transcript = try await transcriber.transcribeSession(at: session, offset: lastSessionOffset)
-                transcriptionState = try .finished(transcriber.write(transcript, to: session))
+                let transcription = try await transcriber.transcribeSession(at: session, offset: lastSessionOffset)
+                transcriptionState = try .finished(transcriber.write(transcription, to: session))
             } catch {
                 logger.error("Transcription failed: \(error, privacy: .public)")
                 transcriptionState = .failed(error.localizedDescription)

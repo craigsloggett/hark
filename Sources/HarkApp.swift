@@ -6,6 +6,7 @@ struct HarkApp: App {
 
     init() {
         Preferences.register()
+        Preferences.Launch.capture()
     }
 
     var body: some Scene {
@@ -20,8 +21,8 @@ struct HarkApp: App {
         }
         .menuBarExtraStyle(.menu)
 
-        // A window opened by id via `openWindow`; `openSettings()` is unreliable from a menu bar
-        // app on macOS 26. Suppressed so it never opens at launch.
+        // A window opened by id via `openWindow` (`openSettings()` is unreliable from a menu bar
+        // app on macOS 26). Suppressed so it never opens at launch.
         Window("Hark Settings", id: SettingsWindow.id) {
             SettingsView()
         }

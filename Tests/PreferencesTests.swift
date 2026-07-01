@@ -3,7 +3,7 @@ import Foundation
 @testable import hark
 import Testing
 
-/// Exercises the `Preferences` UserDefaults layer in an isolated, serialized suite: a single fixed
+/// Exercises the `Preferences` UserDefaults layer in an isolated, serialized suite using a single fixed
 /// domain cleared around every test, so tests never race and the real preferences stay untouched.
 @Suite(.serialized)
 final class PreferencesTests {
@@ -22,17 +22,31 @@ final class PreferencesTests {
     @Test func registerSeedsEveryDefault() {
         Preferences.register(into: defaults)
         #expect(defaults.double(forKey: Preferences.Key.diarizationClusteringThreshold) == 0.75)
-        #expect(defaults.double(forKey: Preferences.Key.diarizationSpeakerSensitivity) == 0.13)
+        #expect(defaults.double(forKey: Preferences.Key.diarizationMinSegmentDuration) == 2.0)
+        #expect(defaults.double(forKey: Preferences.Key.speakerMatchThreshold) == 0.65)
+        #expect(defaults.double(forKey: Preferences.Key.speakerMinEnrollmentDuration) == 1.0)
         #expect(defaults.double(forKey: Preferences.Key.utteranceGap) == 0.4)
-        // Library-deferred keys register FluidAudio's live constants.
+        #expect(defaults.integer(forKey: Preferences.Key.voiceprintMaxSamples) == 5)
+        #expect(defaults.integer(forKey: Preferences.Key.diarizationMaxSpeakers) == 0)
+        // Library-deferred keys register FluidAudio's live constants rather than mirrored literals.
         #expect(defaults.double(forKey: Preferences.Key.diarizationStepRatio)
             == OfflineDiarizerConfig.Segmentation.community.stepRatio)
-        #expect(defaults.double(forKey: Preferences.Key.diarizationMinSegmentDuration)
-            == OfflineDiarizerConfig.Embedding.community.minSegmentDurationSeconds)
+        #expect(defaults.double(forKey: Preferences.Key.diarizationSpeakerSensitivity)
+            == OfflineDiarizerConfig.Clustering.community.warmStartFa)
+        #expect(defaults.double(forKey: Preferences.Key.diarizationSpeakerRecall)
+            == OfflineDiarizerConfig.Clustering.community.warmStartFb)
+        #expect(defaults.double(forKey: Preferences.Key.diarizationMinGapDuration)
+            == OfflineDiarizerConfig.PostProcessing.community.minGapDurationSeconds)
+        #expect(defaults.bool(forKey: Preferences.Key.diarizationExclusiveSegments)
+            == OfflineDiarizerConfig.PostProcessing.community.exclusiveSegments)
+        #expect(defaults.bool(forKey: Preferences.Key.asrDualDecodeArbitration)
+            == ASRConfig().dualDecodeArbitration)
+        #expect(defaults.integer(forKey: Preferences.Key.asrParallelChunkConcurrency)
+            == ASRConfig().parallelChunkConcurrency)
     }
 
     @Test func resolvedFallsBackToDefaultWhenUnset() {
-        // No register(), no stored value: the accessor must still return the Default, not 0.
+        // With no register() and no stored value, the accessor must still return the Default, not 0.
         let value = Preferences.resolved(
             Preferences.Key.utteranceGap,
             default: Preferences.Default.utteranceGap,
@@ -49,5 +63,20 @@ final class PreferencesTests {
             in: defaults
         )
         #expect(value == 0.9)
+    }
+
+    @Test func resolvedBoolAndIntFallBackWhenUnset() {
+        // Keys Preferences never registers, so the lookup is truly unset and the fallback is returned
+        // (a real Key would resolve to its seeded registration value, masking the fallback path).
+        #expect(Preferences.resolved("hark.tests.unsetFlag", default: true, in: defaults))
+        #expect(Preferences.resolved("hark.tests.unsetCount", default: 7, in: defaults) == 7)
+    }
+
+    @Test func resolvedReadsStoredBoolAndIntOverrides() {
+        defaults.set(false, forKey: Preferences.Key.diarizationExclusiveSegments)
+        #expect(!Preferences.resolved(Preferences.Key.diarizationExclusiveSegments, default: true, in: defaults))
+
+        defaults.set(12, forKey: Preferences.Key.voiceprintMaxSamples)
+        #expect(Preferences.resolved(Preferences.Key.voiceprintMaxSamples, default: 5, in: defaults) == 12)
     }
 }

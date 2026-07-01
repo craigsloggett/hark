@@ -24,6 +24,11 @@ struct DiarizedTimeline {
         self.speakers = speakers
     }
 
+    /// Each diarizer cluster id mapped to its positional speaker, for joining per-cluster data like embeddings.
+    var speakersByClusterID: [String: Speaker] {
+        speakers
+    }
+
     /// Attributes one token to a speaker by the turn its `time` falls in, falling back to the
     /// nearest turn by midpoint when it lands in a diarization gap.
     /// - Returns: the containing speaker, or `nil` when the timeline has no turns.

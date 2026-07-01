@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// General settings: how to drive Hark with a global keyboard shortcut.
+/// General settings for driving Hark with a global keyboard shortcut.
 struct GeneralSettingsView: View {
     var body: some View {
         Form {

@@ -2,7 +2,7 @@
 import Testing
 
 struct TimedTokenTests {
-    /// Resolver placing the boundary at t = 1.5: earlier tokens are Speaker 1, later ones Speaker 2.
+    /// Resolver placing the boundary at t = 1.5, so earlier tokens are Speaker 1 and later ones Speaker 2.
     private static func twoSpeakers(_ midpoint: Double) -> Speaker {
         midpoint < 1.5 ? .remote(1) : .remote(2)
     }
@@ -133,7 +133,7 @@ struct TimedTokenTests {
     }
 
     @Test func subwordContinuationNeverSplitsOnGap() {
-        // "we'" and "re" are pieces of one word; a timing gap between them must not split it.
+        // "we'" and "re" are pieces of one word (a timing gap between them must not split it).
         let tokens = [
             TimedToken(start: 0, end: 1, text: " we'"),
             TimedToken(start: 2, end: 3, text: "re"),
