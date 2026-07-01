@@ -25,16 +25,20 @@ struct Voiceprint: Codable, Equatable {
     let id: String
     let name: String?
     let samples: [VoiceSample]
+    /// When set, this voiceprint was merged into another; lookups follow the redirect to the survivor
+    /// so other sessions still bound to this id resolve instead of falling back to positional.
+    let redirectID: String?
 
     /// Cap on samples per voiceprint, from `Preferences`. The initializer keeps the newest this many.
     static var maxSamples: Int {
         Preferences.voiceprintMaxSamples
     }
 
-    init(id: String, name: String?, samples: [VoiceSample]) {
+    init(id: String, name: String?, samples: [VoiceSample], redirectID: String? = nil) {
         self.id = id
         self.name = name
         self.samples = Self.capped(samples)
+        self.redirectID = redirectID
     }
 
     /// The samples' duration-weighted mean embedding, the vector matched against. A single-sample
@@ -76,18 +80,30 @@ struct Voiceprint: Codable, Equatable {
 
 extension Voiceprint: Identifiable {}
 
-/// A session speaker's resolved identity (`name` is `nil` until the voiceprint is named).
+extension Voiceprint {
+    /// Follows `redirectID` chains to the surviving voiceprint after merges, or `nil` when the id is
+    /// unknown or the chain breaks. Guards against cycles.
+    static func survivor(of id: String, in voiceprints: [String: Voiceprint]) -> Voiceprint? {
+        var current = id
+        var seen: Set<String> = []
+        while seen.insert(current).inserted, let voiceprint = voiceprints[current] {
+            guard let redirect = voiceprint.redirectID else { return voiceprint }
+            current = redirect
+        }
+        return nil
+    }
+}
+
+enum SpeakerStoreError: Error {
+    case invalidEmbedding
+    case unknownVoiceprint
+}
+
+/// A speaker's resolved cross-session identity, the result of matching one session's clusters against
+/// the voiceprint database. `TranscriptionService` maps these onto the persisted `SessionSpeaker` overlay.
 struct SpeakerIdentity: Codable, Equatable {
     let id: String
     let name: String?
-}
-
-extension [String: SpeakerIdentity] {
-    /// Display names keyed by speaker token, dropping the still-unnamed speakers. Feeds
-    /// `Transcript.plainText(names:)`.
-    var names: [String: String] {
-        compactMapValues(\.name)
-    }
 }
 
 /// Matches each session's diarized speakers against a persisted voiceprint database so a recurring
@@ -155,21 +171,26 @@ actor SpeakerStore {
 
     // MARK: Editing
 
-    /// Every saved voiceprint, for the naming UI to list. Throws only when the file exists but
-    /// can't be decoded (an absent file is an empty database).
+    /// Every saved voiceprint, including merge tombstones so the caller can resolve redirects. Throws
+    /// only when the file exists but can't be decoded (an absent file is an empty database).
     func voiceprints() throws -> [Voiceprint] {
         try load()
+    }
+
+    /// The surviving voiceprint for an id, following merge redirects, or `nil` if unknown.
+    func voiceprint(id: String) throws -> Voiceprint? {
+        try Voiceprint.survivor(of: id, in: byID(load()))
     }
 
     /// Sets (or clears) a voiceprint's name. Whitespace-only names clear it back to unnamed. A
     /// missing `id` is a no-op so the caller doesn't have to guard against a since-deleted voice.
     func rename(id: String, to name: String?) throws {
-        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalized = (trimmed?.isEmpty ?? true) ? nil : trimmed
         var voiceprints = try load()
         guard let index = voiceprints.firstIndex(where: { $0.id == id }) else { return }
         let existing = voiceprints[index]
-        voiceprints[index] = Voiceprint(id: existing.id, name: normalized, samples: existing.samples)
+        voiceprints[index] = Voiceprint(
+            id: existing.id, name: normalizedName(name), samples: existing.samples, redirectID: existing.redirectID
+        )
         try save(voiceprints)
     }
 
@@ -178,6 +199,72 @@ actor SpeakerStore {
         let voiceprints = try load()
         guard voiceprints.contains(where: { $0.id == id }) else { return }
         try save(voiceprints.filter { $0.id != id })
+    }
+
+    /// Enrolls a brand-new voiceprint from a diarized embedding, e.g. when the labeling window adds a
+    /// new voice. A deliberate action, so it skips the automatic enrollment's duration floor.
+    /// - Throws: `SpeakerStoreError.invalidEmbedding` when the embedding is the wrong size.
+    func enroll(embedding: [Float], duration: Float, name: String?) throws -> Voiceprint {
+        guard embedding.count == SpeakerManager.embeddingSize else { throw SpeakerStoreError.invalidEmbedding }
+        var voiceprints = try load()
+        let sample = VoiceSample(id: uuid(), embedding: embedding, duration: duration, enrolledAt: now())
+        let voiceprint = Voiceprint(id: uuid().uuidString, name: normalizedName(name), samples: [sample])
+        voiceprints.append(voiceprint)
+        try save(voiceprints)
+        return voiceprint
+    }
+
+    /// Adds an enrollment sample to an existing voiceprint, e.g. when the user confirms "this is
+    /// someone I know", so the identity learns the new session's voice.
+    /// - Throws: `SpeakerStoreError.invalidEmbedding` or `.unknownVoiceprint`.
+    func addSample(toVoiceprint id: String, embedding: [Float], duration: Float) throws {
+        guard embedding.count == SpeakerManager.embeddingSize else { throw SpeakerStoreError.invalidEmbedding }
+        var voiceprints = try load()
+        guard let index = voiceprints.firstIndex(where: { $0.id == id }) else {
+            throw SpeakerStoreError.unknownVoiceprint
+        }
+        let existing = voiceprints[index]
+        let sample = VoiceSample(id: uuid(), embedding: embedding, duration: duration, enrolledAt: now())
+        voiceprints[index] = Voiceprint(
+            id: existing.id, name: existing.name, samples: existing.samples + [sample], redirectID: existing.redirectID
+        )
+        try save(voiceprints)
+    }
+
+    /// Merges one voiceprint into another (two over-split speakers are the same person): the survivor
+    /// keeps its id and name, gains the source's samples, and the source becomes a redirect tombstone
+    /// so other sessions bound to it still resolve. A no-op returning the survivor when the ids match.
+    /// - Throws: `SpeakerStoreError.unknownVoiceprint` when either id is missing.
+    func merge(_ sourceID: String, into destinationID: String) throws -> Voiceprint {
+        var voiceprints = try load()
+        guard let destinationIndex = voiceprints.firstIndex(where: { $0.id == destinationID }) else {
+            throw SpeakerStoreError.unknownVoiceprint
+        }
+        guard sourceID != destinationID else { return voiceprints[destinationIndex] }
+        guard let sourceIndex = voiceprints.firstIndex(where: { $0.id == sourceID }) else {
+            throw SpeakerStoreError.unknownVoiceprint
+        }
+        let source = voiceprints[sourceIndex]
+        let destination = voiceprints[destinationIndex]
+        let merged = Voiceprint(
+            id: destination.id,
+            name: destination.name ?? source.name,
+            samples: destination.samples + source.samples,
+            redirectID: destination.redirectID
+        )
+        voiceprints[destinationIndex] = merged
+        voiceprints[sourceIndex] = Voiceprint(id: source.id, name: nil, samples: [], redirectID: destination.id)
+        try save(voiceprints)
+        return merged
+    }
+
+    private func byID(_ voiceprints: [Voiceprint]) -> [String: Voiceprint] {
+        Dictionary(voiceprints.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private func normalizedName(_ name: String?) -> String? {
+        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (trimmed?.isEmpty ?? true) ? nil : trimmed
     }
 
     // MARK: Matching

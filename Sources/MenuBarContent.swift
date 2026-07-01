@@ -36,13 +36,11 @@ struct MenuBarContent: View {
         }
         .disabled(recorder.lastSessionURL == nil)
 
-        Button("Name Speakers…") {
-            SettingsPresenter.shared.tab = .voices
-            showSettings()
-        }
-        .disabled(recorder.lastSessionURL == nil)
-
         Divider()
+
+        Button("Browse Recordings…") {
+            openSessions()
+        }
 
         Button("Settings…") {
             showSettings()
@@ -81,5 +79,11 @@ struct MenuBarContent: View {
         // A menu bar (accessory) app must activate itself to bring the window to the front.
         NSApp.activate(ignoringOtherApps: true)
         openWindow(id: SettingsWindow.id)
+    }
+
+    private func openSessions() {
+        // Promote to a Dock app before the window mounts so its icon and ⌘-Tab entry appear at once.
+        WindowActivation.shared.promote()
+        openWindow(id: SessionsWindow.id)
     }
 }

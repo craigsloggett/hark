@@ -17,11 +17,14 @@ enum TranscriptionError: LocalizedError {
     }
 }
 
-/// A transcribed session plus each remote speaker's cross-session identity, keyed by on-disk token.
-/// The transcript stays positional and portable (identities live in the `speakers.json` overlay).
+/// A transcribed session plus its remote speakers' overlay, keyed by on-disk token. The transcript
+/// stays positional and portable; identities and labels live in the `speakers.json` overlay.
+/// `displayNames` is the token to name map resolved at transcription time, so `write` renders names
+/// straight away without re-reading the voiceprint database.
 struct Transcription {
     let transcript: Transcript
-    let speakers: [String: SpeakerIdentity]
+    let speakers: [String: SessionSpeaker]
+    let displayNames: [String: String]
 }
 
 /// Transcribes a recording session's two tracks on-device with FluidAudio's Parakeet model.
@@ -56,7 +59,8 @@ struct TranscriptionService {
         let systemTokens = try await transcriber.tokens(in: session.system, locale: locale)
         // Diarization only labels remote speech (skip it when the track is silent).
         let them: [TranscriptSegment]
-        var speakers: [String: SpeakerIdentity] = [:]
+        var speakers: [String: SessionSpeaker] = [:]
+        var displayNames: [String: String] = [:]
         if systemTokens.isEmpty {
             them = []
         } else {
@@ -64,12 +68,12 @@ struct TranscriptionService {
             let timeline = DiarizedTimeline(turns: diarization.turns)
             // Fall back to one speaker when diarization found no turns to attribute to.
             them = systemTokens.segments(resolving: { timeline.speaker(at: $0) ?? .remote(1) }, gap: gap)
-            speakers = await resolveIdentities(diarization, timeline: timeline)
+            (speakers, displayNames) = await resolveIdentities(diarization, timeline: timeline)
         }
 
         // `them` is built on the system file's own timeline (shifting realigns it onto the mic's).
         let transcript = Transcript.merging(you, them.shifted(by: offset))
-        return Transcription(transcript: transcript, speakers: speakers)
+        return Transcription(transcript: transcript, speakers: speakers, displayNames: displayNames)
     }
 
     /// Writes `transcript.txt`, `transcript.json`, and `speakers.json` (when there are remote speakers).
@@ -78,7 +82,7 @@ struct TranscriptionService {
     func write(_ transcription: Transcription, to sessionURL: URL) throws -> URL {
         let session = Session(url: sessionURL)
         let transcript = transcription.transcript
-        let text = transcript.plainText(names: transcription.speakers.names) + "\n"
+        let text = transcript.plainText(names: transcription.displayNames) + "\n"
         try text.write(to: session.transcriptText, atomically: true, encoding: .utf8)
         try transcript.segments.writeJSON(to: session.transcriptJSON)
         if !transcription.speakers.isEmpty {
@@ -87,25 +91,31 @@ struct TranscriptionService {
         return session.transcriptText
     }
 
-    /// Rewrites `transcript.txt` from the stored positional segments and the session's current
-    /// `speakers.json` names, so naming a speaker updates that session's transcript in place without
+    /// Rewrites `transcript.txt` from the stored positional segments and the session's current overlay,
+    /// so editing a speaker in the labeling window updates that session's transcript in place without
     /// re-transcribing. The positional `transcript.json` is left untouched.
-    static func rerenderTranscript(at sessionURL: URL) throws {
+    /// - Parameter voiceprints: the database used to resolve bound identities (pass the full set,
+    ///   including merge tombstones, so redirects still resolve).
+    static func rerenderTranscript(at sessionURL: URL, voiceprints: [Voiceprint]) throws {
         let session = Session(url: sessionURL)
         let segments = try JSONDecoder().decode(
             [TranscriptSegment].self, from: Data(contentsOf: session.transcriptJSON)
         )
-        let names = try session.loadSpeakers().names
+        let overlay = try session.loadSpeakers()
+        let byID = Dictionary(voiceprints.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let names = SpeakerDisplay.names(overlay: overlay, voiceprints: byID)
         let text = Transcript(segments: segments).plainText(names: names) + "\n"
         try text.write(to: session.transcriptText, atomically: true, encoding: .utf8)
     }
 
-    /// Resolves each diarized speaker's embedding to an identity, keyed by on-disk token to align
-    /// with `transcript.json`.
+    /// Resolves each diarized speaker to an overlay entry keyed by on-disk token. An entry is emitted
+    /// for every speaker (even unmatched, positional-only ones), carrying the centroid so the labeling
+    /// window can enroll or split a voiceprint later. Also returns the token to name map for the
+    /// transcript rendered at this moment.
     private func resolveIdentities(
         _ diarization: Diarization,
         timeline: DiarizedTimeline
-    ) async -> [String: SpeakerIdentity] {
+    ) async -> (overlay: [String: SessionSpeaker], displayNames: [String: String]) {
         var durations: [String: Float] = [:]
         for turn in diarization.turns {
             durations[turn.speakerID, default: 0] += Float(turn.end - turn.start)
@@ -114,15 +124,20 @@ struct TranscriptionService {
             guard let embedding = diarization.embeddings[clusterID] else { return nil }
             return SpeakerCluster(id: clusterID, embedding: embedding, duration: durations[clusterID] ?? 0)
         }
-        guard !clusters.isEmpty else { return [:] }
+        guard !clusters.isEmpty else { return ([:], [:]) }
 
         let byCluster = await speakerStore.resolve(clusters)
-        var byToken: [String: SpeakerIdentity] = [:]
+        var overlay: [String: SessionSpeaker] = [:]
+        var displayNames: [String: String] = [:]
         for (clusterID, speaker) in timeline.speakersByClusterID {
-            if let identity = byCluster[clusterID] {
-                byToken[speaker.token] = identity
-            }
+            let identity = byCluster[clusterID]
+            overlay[speaker.token] = SessionSpeaker(
+                voiceprintID: identity?.id,
+                embedding: diarization.embeddings[clusterID],
+                duration: durations[clusterID]
+            )
+            displayNames[speaker.token] = identity?.name
         }
-        return byToken
+        return (overlay, displayNames)
     }
 }

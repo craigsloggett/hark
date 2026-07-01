@@ -121,9 +121,21 @@ final class AudioRecorder {
 
     static func sessionName(for date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        formatter.dateFormat = sessionDateFormat
         return "hark-\(formatter.string(from: date))"
     }
+
+    /// Parses a session folder name (`hark-yyyyMMdd-HHmmss`) back to its start date, the inverse of
+    /// `sessionName(for:)`, or `nil` when the name doesn't match.
+    static func date(from name: String) -> Date? {
+        let prefix = "hark-"
+        guard name.hasPrefix(prefix) else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateFormat = sessionDateFormat
+        return formatter.date(from: String(name.dropFirst(prefix.count)))
+    }
+
+    private static let sessionDateFormat = "yyyyMMdd-HHmmss"
 
     private static let micSettings: [String: Any] = [
         AVFormatIDKey: Int(kAudioFormatLinearPCM),

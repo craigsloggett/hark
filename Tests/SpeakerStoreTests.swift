@@ -179,4 +179,44 @@ final class SpeakerStoreTests {
         let matched = await second.resolve([SpeakerCluster(id: "S1", embedding: embedding([1, 0.02]), duration: 8)])
         #expect(matched["S1"]?.name == "Ada")
     }
+
+    // MARK: Identity operations
+
+    @Test func enrollCreatesANamedVoiceprint() async throws {
+        let store = SpeakerStore(directory: directory)
+        let voiceprint = try await store.enroll(embedding: embedding([1]), duration: 3, name: "Ada")
+        #expect(voiceprint.name == "Ada")
+        #expect(voiceprint.samples.count == 1)
+        let all = try await store.voiceprints()
+        #expect(all.map(\.id) == [voiceprint.id])
+    }
+
+    @Test func enrollRejectsWrongSizedEmbedding() async {
+        let store = SpeakerStore(directory: directory)
+        await #expect(throws: SpeakerStoreError.self) {
+            _ = try await store.enroll(embedding: [1, 2, 3], duration: 3, name: nil)
+        }
+    }
+
+    @Test func addSampleGrowsTheVoiceprint() async throws {
+        let store = SpeakerStore(directory: directory)
+        let voiceprint = try await store.enroll(embedding: embedding([1]), duration: 3, name: nil)
+        try await store.addSample(toVoiceprint: voiceprint.id, embedding: embedding([1, 0.1]), duration: 2)
+        let reloaded = try await store.voiceprints().first { $0.id == voiceprint.id }
+        #expect(reloaded?.samples.count == 2)
+    }
+
+    @Test func mergeCombinesSamplesAndRedirectsSource() async throws {
+        let store = SpeakerStore(directory: directory)
+        let ada = try await store.enroll(embedding: embedding([1]), duration: 3, name: "Ada")
+        let other = try await store.enroll(embedding: embedding([0, 1]), duration: 4, name: nil)
+
+        let merged = try await store.merge(other.id, into: ada.id)
+        #expect(merged.id == ada.id)
+        #expect(merged.name == "Ada")
+        #expect(merged.samples.count == 2)
+        // The source is tombstoned; `voiceprint(id:)` follows the redirect to the survivor.
+        let followed = try await store.voiceprint(id: other.id)
+        #expect(followed?.id == ada.id)
+    }
 }

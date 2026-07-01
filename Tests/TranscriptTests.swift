@@ -105,14 +105,6 @@ struct TranscriptTests {
         }
     }
 
-    @Test func identityNamesDropUnnamedSpeakers() {
-        let overlay: [String: SpeakerIdentity] = [
-            "speaker1": SpeakerIdentity(id: "a", name: "Alice"),
-            "speaker2": SpeakerIdentity(id: "b", name: nil),
-        ]
-        #expect(overlay.names == ["speaker1": "Alice"])
-    }
-
     @Test func segmentEncodesSpeakerAsToken() throws {
         let you = try JSONEncoder().encode(TranscriptSegment(start: 0, end: 1, speaker: .you, text: "Hi"))
         #expect(try #require(String(bytes: you, encoding: .utf8)).contains("\"speaker\":\"you\""))

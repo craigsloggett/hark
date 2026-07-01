@@ -25,9 +25,18 @@ struct HarkApp: App {
         // app on macOS 26). Suppressed so it never opens at launch.
         Window("Hark Settings", id: SettingsWindow.id) {
             SettingsView()
-                .environment(recorder)
         }
         .defaultLaunchBehavior(.suppressed)
         .windowResizability(.contentSize)
+
+        // The recordings browser and speaker-labeling window. A singleton so re-opening refocuses the
+        // one instance; not state-restored so every appearance flows through the activation counter.
+        Window("Hark", id: SessionsWindow.id) {
+            SessionsBrowserView()
+                .environment(recorder)
+        }
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
+        .defaultSize(width: 900, height: 620)
     }
 }
