@@ -168,11 +168,7 @@ struct AdvancedSettingsView: View {
         .frame(height: 540)
     }
 
-    /// True when a restart-scoped setting differs from the value the running engine loaded at launch.
-    private var restartPending: Bool {
-        dualDecodeArbitration != Preferences.Launch.asrDualDecodeArbitration
-            || parallelChunkConcurrency != Preferences.Launch.asrParallelChunkConcurrency
-    }
+    // MARK: Rows
 
     private func tuningRow(
         _ title: String,
@@ -214,7 +210,7 @@ struct AdvancedSettingsView: View {
         _ title: String,
         value: Binding<Int>,
         range: ClosedRange<Int>,
-        valueText: @escaping (Int) -> String = { "\($0)" },
+        valueText: (Int) -> String = { "\($0)" },
         help: String
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -231,6 +227,14 @@ struct AdvancedSettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    // MARK: Logic
+
+    /// True when a restart-scoped setting differs from the value the running engine loaded at launch.
+    private var restartPending: Bool {
+        dualDecodeArbitration != Preferences.Launch.asrDualDecodeArbitration
+            || parallelChunkConcurrency != Preferences.Launch.asrParallelChunkConcurrency
     }
 
     private func resetToDefaults() {
