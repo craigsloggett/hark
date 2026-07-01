@@ -3,7 +3,7 @@ import SwiftUI
 extension Binding<Bool> {
     /// The presence of an optional as a `Bool`, for alerts and dialogs presented by setting an id.
     /// Dismissal (setting `false`) clears the value; setting `true` has nothing to present and is ignored.
-    init(presence: Binding<(some Any)?>) {
+    init(presence: Binding<(some Sendable)?>) {
         self.init(
             get: { presence.wrappedValue != nil },
             set: { if !$0 { presence.wrappedValue = nil } }
