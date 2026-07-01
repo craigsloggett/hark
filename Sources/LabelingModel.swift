@@ -146,9 +146,11 @@ final class LabelingModel {
 
     // MARK: Display
 
-    /// The resolved key that groups turns and colors chips: the bound voiceprint, else the token.
+    /// The resolved key that groups turns and colors chips: the bound voiceprint (following merge
+    /// redirects, so tokens merged elsewhere still collapse), else the token.
     private func identityKey(_ token: String) -> String {
-        detail?.overlay[token]?.voiceprintID ?? token
+        guard let id = detail?.overlay[token]?.voiceprintID else { return token }
+        return Voiceprint.survivor(of: id, in: voiceprintsByID)?.id ?? id
     }
 
     func displayName(token: String) -> String? {

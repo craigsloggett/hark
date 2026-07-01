@@ -97,11 +97,12 @@ actor SpeakerStore {
         try Voiceprint.survivor(of: id, in: byID(load()))
     }
 
-    /// Sets (or clears) a voiceprint's name. Whitespace-only names clear it back to unnamed. A
-    /// missing `id` is a no-op so the caller doesn't have to guard against a since-deleted voice.
+    /// Sets (or clears) a voiceprint's name, following merge redirects to the survivor. Whitespace-only
+    /// names clear it back to unnamed. A missing `id` is a no-op so the caller doesn't have to guard
+    /// against a since-deleted voice.
     func rename(id: String, to name: String?) throws {
         var voiceprints = try load()
-        guard let index = voiceprints.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = survivorIndex(of: id, in: voiceprints) else { return }
         let existing = voiceprints[index]
         voiceprints[index] = Voiceprint(
             id: existing.id, name: normalizedName(name), samples: existing.samples, redirectID: existing.redirectID
@@ -109,11 +110,12 @@ actor SpeakerStore {
         try save(voiceprints)
     }
 
-    /// Removes a voiceprint so a stray or misheard voice can be forgotten.
+    /// Removes a voiceprint, following merge redirects to the survivor. A missing `id` is a no-op.
     func remove(id: String) throws {
         let voiceprints = try load()
-        guard voiceprints.contains(where: { $0.id == id }) else { return }
-        try save(voiceprints.filter { $0.id != id })
+        guard let index = survivorIndex(of: id, in: voiceprints) else { return }
+        let survivorID = voiceprints[index].id
+        try save(voiceprints.filter { $0.id != survivorID })
     }
 
     /// Overwrites the whole database (the labeling window's undo primitive); tombstones are kept as given.
@@ -134,13 +136,13 @@ actor SpeakerStore {
         return voiceprint
     }
 
-    /// Adds an enrollment sample to an existing voiceprint, e.g. when the user confirms "this is
-    /// someone I know", so the identity learns the new session's voice.
+    /// Adds an enrollment sample to an existing voiceprint (following merge redirects to the survivor),
+    /// e.g. when the user confirms "this is someone I know", so the identity learns the new session's voice.
     /// - Throws: `SpeakerStoreError.invalidEmbedding` or `.unknownVoiceprint`.
     func addSample(toVoiceprint id: String, embedding: [Float], duration: Float) throws {
         guard embedding.count == SpeakerManager.embeddingSize else { throw SpeakerStoreError.invalidEmbedding }
         var voiceprints = try load()
-        guard let index = voiceprints.firstIndex(where: { $0.id == id }) else {
+        guard let index = survivorIndex(of: id, in: voiceprints) else {
             throw SpeakerStoreError.unknownVoiceprint
         }
         let existing = voiceprints[index]
@@ -153,19 +155,19 @@ actor SpeakerStore {
 
     /// Merges one voiceprint into another (two over-split speakers are the same person): the survivor
     /// keeps its id and name, gains the source's samples, and the source becomes a redirect tombstone
-    /// so other sessions bound to it still resolve. A no-op returning the survivor when the ids match.
+    /// so other sessions bound to it still resolve. Both ids follow merge redirects; a no-op returning
+    /// the survivor when they resolve to the same voiceprint.
     /// - Throws: `SpeakerStoreError.unknownVoiceprint` when either id is missing.
     func merge(_ sourceID: String, into destinationID: String) throws -> Voiceprint {
         var voiceprints = try load()
-        guard let destinationIndex = voiceprints.firstIndex(where: { $0.id == destinationID }) else {
-            throw SpeakerStoreError.unknownVoiceprint
-        }
-        guard sourceID != destinationID else { return voiceprints[destinationIndex] }
-        guard let sourceIndex = voiceprints.firstIndex(where: { $0.id == sourceID }) else {
+        guard let destinationIndex = survivorIndex(of: destinationID, in: voiceprints),
+              let sourceIndex = survivorIndex(of: sourceID, in: voiceprints)
+        else {
             throw SpeakerStoreError.unknownVoiceprint
         }
         let source = voiceprints[sourceIndex]
         let destination = voiceprints[destinationIndex]
+        guard source.id != destination.id else { return destination }
         let merged = Voiceprint(
             id: destination.id,
             name: destination.name ?? source.name,
@@ -223,6 +225,13 @@ actor SpeakerStore {
         Dictionary(voiceprints.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
+    /// The array index of the surviving voiceprint for `id`. Sessions merged elsewhere can still hold
+    /// a tombstoned id, so every edit resolves to the survivor rather than mutating a tombstone.
+    private func survivorIndex(of id: String, in voiceprints: [Voiceprint]) -> Int? {
+        guard let survivor = Voiceprint.survivor(of: id, in: byID(voiceprints)) else { return nil }
+        return voiceprints.firstIndex { $0.id == survivor.id }
+    }
+
     private func normalizedName(_ name: String?) -> String? {
         let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
         return (trimmed?.isEmpty ?? true) ? nil : trimmed
@@ -274,11 +283,12 @@ actor SpeakerStore {
         return (resolved, enrolled)
     }
 
-    /// A `SpeakerManager` seeded with the known voiceprints for read-only matching. Built via
-    /// `upsertSpeaker` to avoid naming FluidAudio's `Speaker`, which a same-named module type shadows.
+    /// A `SpeakerManager` seeded with the known voiceprints for read-only matching; tombstones are
+    /// skipped so a merged-away id can never be matched again. Built via `upsertSpeaker` to avoid
+    /// naming FluidAudio's `Speaker`, which a same-named module type shadows.
     private func matcher(seededWith known: [Voiceprint], threshold: Float) -> SpeakerManager {
         var manager = SpeakerManager(speakerThreshold: threshold)
-        for voiceprint in known {
+        for voiceprint in known where voiceprint.redirectID == nil {
             let centroid = voiceprint.centroid
             guard centroid.count == SpeakerManager.embeddingSize else { continue }
             manager.upsertSpeaker(

@@ -230,6 +230,45 @@ final class SpeakerStoreTests {
         #expect(followed?.id == ada.id)
     }
 
+    @Test func renameFollowsMergeRedirect() async throws {
+        let store = SpeakerStore(directory: directory)
+        let ada = try await store.enroll(embedding: embedding([1]), duration: 3, name: "Ada")
+        let duplicate = try await store.enroll(embedding: embedding([1, 0.01]), duration: 2, name: nil)
+        _ = try await store.merge(duplicate.id, into: ada.id)
+
+        // A session merged elsewhere can still hold the tombstoned id; renaming through it renames
+        // the survivor rather than silently naming the tombstone.
+        try await store.rename(id: duplicate.id, to: "Ada Lovelace")
+        let survivor = try await store.voiceprint(id: ada.id)
+        #expect(survivor?.name == "Ada Lovelace")
+    }
+
+    @Test func addSampleFollowsMergeRedirect() async throws {
+        let store = SpeakerStore(directory: directory)
+        let ada = try await store.enroll(embedding: embedding([1]), duration: 3, name: "Ada")
+        let duplicate = try await store.enroll(embedding: embedding([1, 0.01]), duration: 2, name: nil)
+        _ = try await store.merge(duplicate.id, into: ada.id)
+
+        // Teaching through the tombstoned id grows the survivor. The tombstone must stay sampleless,
+        // or it would regain a centroid and future sessions could match a merged-away id.
+        try await store.addSample(toVoiceprint: duplicate.id, embedding: embedding([1, 0.02]), duration: 2)
+        let all = try await store.voiceprints()
+        #expect(all.first { $0.id == ada.id }?.samples.count == 3)
+        #expect(all.first { $0.id == duplicate.id }?.samples.isEmpty == true)
+    }
+
+    @Test func removeFollowsMergeRedirect() async throws {
+        let store = SpeakerStore(directory: directory)
+        let ada = try await store.enroll(embedding: embedding([1]), duration: 3, name: "Ada")
+        let duplicate = try await store.enroll(embedding: embedding([1, 0.01]), duration: 2, name: nil)
+        _ = try await store.merge(duplicate.id, into: ada.id)
+
+        // Forgetting through the tombstoned id forgets the surviving voice.
+        try await store.remove(id: duplicate.id)
+        let remaining = try await store.voiceprints()
+        #expect(!remaining.contains { $0.id == ada.id })
+    }
+
     @Test func nearestNamedFindsTheClosestSavedVoice() async throws {
         let store = SpeakerStore(directory: directory)
         let ada = try await store.enroll(embedding: embedding([1]), duration: 3, name: "Ada")

@@ -23,6 +23,28 @@ struct LabelingModelTests {
         #expect(duplicate?.reason == .sameName)
     }
 
+    @Test func turnGroupsCollapseAcrossAMergeRedirect() {
+        let detail = SessionDetail(
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("hark-test"),
+            segments: [
+                TranscriptSegment(start: 0, end: 1, speaker: .remote(1), text: "Hi"),
+                TranscriptSegment(start: 1, end: 2, speaker: .remote(2), text: "Hello"),
+            ],
+            overlay: [
+                "speaker1": SessionSpeaker(voiceprintID: "old"),
+                "speaker2": SessionSpeaker(voiceprintID: "new"),
+            ]
+        )
+        let model = LabelingModel.preview(detail: detail, voiceprints: [
+            Voiceprint(id: "old", name: nil, samples: [], redirectID: "new"),
+            Voiceprint(id: "new", name: "Ada", samples: []),
+        ])
+
+        // A merge in another session leaves this overlay bound to the tombstone; both tokens resolve
+        // to the survivor, so their turns group (and color) as one speaker.
+        #expect(model.turnGroups.count == 1)
+    }
+
     @Test func allowsAnEnrollWithAFreshName() async {
         let detail = SessionDetail(
             url: URL(fileURLWithPath: "/tmp/hark-test"),
