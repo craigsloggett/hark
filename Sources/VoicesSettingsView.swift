@@ -2,19 +2,26 @@ import SwiftUI
 
 /// Names saved voices from two surfaces: the speakers of the most recent recording (named in
 /// context, then reflected in that session's transcript), and the full list of saved voiceprints.
+///
+/// Names are shown read-only and edited on demand behind a pencil; edits are buffered as drafts and
+/// committed together by Save. Deleting a voice is immediate.
 struct VoicesSettingsView: View {
     @Environment(AudioRecorder.self) private var recorder
 
     @State private var voiceprints: [Voiceprint] = []
     @State private var recent: RecentSession?
+    /// Pending names keyed by voiceprint id, absent until a row is edited.
+    @State private var drafts: [String: String] = [:]
+    /// The voiceprint id whose name field is currently open, if any.
+    @State private var editing: String?
 
     var body: some View {
         Form {
             if let recent {
                 Section {
                     ForEach(recent.speakers) { speaker in
-                        RecentSpeakerRow(label: speaker.label, initialName: speaker.name) { name in
-                            await nameRecentSpeaker(speaker, to: name)
+                        LabeledContent(speaker.label) {
+                            nameControl(for: speaker.voiceprintID, placeholder: "Add a name")
                         }
                     }
                 } header: {
@@ -30,12 +37,32 @@ struct VoicesSettingsView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(voiceprints) { voiceprint in
-                        VoiceRow(
-                            voiceprint: voiceprint,
-                            onRename: { await rename(voiceprint, to: $0) },
-                            onDelete: { await delete(voiceprint) }
-                        )
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 8) {
+                                nameControl(for: voiceprint.id, placeholder: "Unnamed voice")
+                                Spacer(minLength: 8)
+                                Button(role: .destructive) {
+                                    Task { await delete(voiceprint) }
+                                } label: {
+                                    Image(systemName: "trash")
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Forget this voice")
+                            }
+                            Text(metadata(for: voiceprint))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                }
+            }
+
+            Section {
+                HStack {
+                    Spacer()
+                    Button("Save") { Task { await save() } }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!hasChanges)
                 }
             }
         }
@@ -44,7 +71,54 @@ struct VoicesSettingsView: View {
         .task { await reload() }
     }
 
-    // MARK: State
+    /// A read-only name that swaps to an editable field while `editing` points at `id`.
+    private func nameControl(for id: String, placeholder: String) -> some View {
+        HStack(spacing: 8) {
+            NameEditor(
+                placeholder: placeholder,
+                draft: draftBinding(id),
+                isEditing: editing == id,
+                onBeginEdit: { editing = id },
+                onEndEdit: { if editing == id { editing = nil } }
+            )
+            if editing != id {
+                Button { editing = id } label: {
+                    Image(systemName: "pencil")
+                }
+                .buttonStyle(.borderless)
+                .help("Rename")
+            }
+        }
+    }
+
+    // MARK: Drafts
+
+    /// The pending name for `id`, falling back to its saved name so the field opens pre-filled.
+    private func draftBinding(_ id: String) -> Binding<String> {
+        Binding(
+            get: { drafts[id] ?? savedName(id) },
+            set: { drafts[id] = $0 }
+        )
+    }
+
+    private func savedName(_ id: String) -> String {
+        voiceprints.first { $0.id == id }?.name ?? ""
+    }
+
+    /// Drafts that differ from the saved name once trimmed, keyed by voiceprint id.
+    private var changes: [String: String] {
+        drafts.filter { id, value in normalized(value) != normalized(savedName(id)) }
+    }
+
+    private var hasChanges: Bool {
+        !changes.isEmpty
+    }
+
+    private func normalized(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // MARK: Actions
 
     private func reload() async {
         voiceprints = await (try? SpeakerStore.shared.voiceprints()) ?? []
@@ -60,39 +134,59 @@ struct VoicesSettingsView: View {
         let speakers = overlay
             .compactMap { token, identity -> RecentSpeaker? in
                 guard let label = Speaker(token: token)?.label else { return nil }
-                return RecentSpeaker(token: token, voiceprintID: identity.id, label: label, name: identity.name ?? "")
+                return RecentSpeaker(token: token, voiceprintID: identity.id, label: label)
             }
             // Numeric-aware so "Speaker 2" sorts before "Speaker 10".
             .sorted { $0.token.localizedStandardCompare($1.token) == .orderedAscending }
         return speakers.isEmpty ? nil : RecentSession(url: url, speakers: speakers)
     }
 
-    // MARK: Actions
-
-    private func rename(_ voiceprint: Voiceprint, to name: String) async {
-        try? await SpeakerStore.shared.rename(id: voiceprint.id, to: name)
-        await reload()
-    }
-
     private func delete(_ voiceprint: Voiceprint) async {
         try? await SpeakerStore.shared.remove(id: voiceprint.id)
+        drafts[voiceprint.id] = nil
+        if editing == voiceprint.id { editing = nil }
         await reload()
     }
 
-    /// Persists the name to the shared database (for future sessions), then updates this session's
-    /// overlay and re-renders its transcript so the change shows right away.
-    private func nameRecentSpeaker(_ speaker: RecentSpeaker, to name: String) async {
-        guard let sessionURL = recent?.url else { return }
-        try? await SpeakerStore.shared.rename(id: speaker.voiceprintID, to: name)
-
-        let session = Session(url: sessionURL)
-        if var overlay = try? session.loadSpeakers() {
-            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            overlay[speaker.token] = SpeakerIdentity(id: speaker.voiceprintID, name: trimmed.isEmpty ? nil : trimmed)
-            try? session.writeSpeakers(overlay)
-            try? TranscriptionService.rerenderTranscript(at: sessionURL)
+    /// Persists every changed name to the shared database, then refreshes the last recording's
+    /// overlay and transcript for any of its speakers that changed.
+    private func save() async {
+        let changed = changes
+        for (id, value) in changed {
+            try? await SpeakerStore.shared.rename(id: id, to: value)
         }
+        if let recent, recent.speakers.contains(where: { changed.keys.contains($0.voiceprintID) }) {
+            let session = Session(url: recent.url)
+            if var overlay = try? session.loadSpeakers() {
+                for speaker in recent.speakers where changed.keys.contains(speaker.voiceprintID) {
+                    let name = normalized(changed[speaker.voiceprintID] ?? "")
+                    overlay[speaker.token] = SpeakerIdentity(id: speaker.voiceprintID, name: name.isEmpty ? nil : name)
+                }
+                try? session.writeSpeakers(overlay)
+                try? TranscriptionService.rerenderTranscript(at: recent.url)
+            }
+        }
+        drafts = [:]
+        editing = nil
         await reload()
+    }
+
+    // MARK: Formatting
+
+    private func metadata(for voiceprint: Voiceprint) -> String {
+        var parts: [String] = []
+        if let last = voiceprint.lastEnrolledAt {
+            parts.append("Last heard \(last.formatted(date: .abbreviated, time: .omitted))")
+        }
+        parts.append(Self.duration(voiceprint.totalDuration))
+        let count = voiceprint.samples.count
+        parts.append("\(count) sample\(count == 1 ? "" : "s")")
+        return parts.joined(separator: " · ")
+    }
+
+    private static func duration(_ seconds: Float) -> String {
+        let total = Int(seconds.rounded())
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 }
 
@@ -106,109 +200,36 @@ private struct RecentSpeaker: Identifiable {
     let token: String
     let voiceprintID: String
     let label: String
-    let name: String
 
     var id: String {
         token
     }
 }
 
-/// One speaker in the "last recording" section: a fixed label and an editable name.
-private struct RecentSpeakerRow: View {
-    let label: String
-    let initialName: String
-    let onCommit: (String) async -> Void
+/// A name shown as text until asked to edit, then a focused field that commits on Return or blur.
+private struct NameEditor: View {
+    let placeholder: String
+    @Binding var draft: String
+    let isEditing: Bool
+    let onBeginEdit: () -> Void
+    let onEndEdit: () -> Void
 
-    @State private var draft: String
     @FocusState private var focused: Bool
 
-    init(label: String, initialName: String, onCommit: @escaping (String) async -> Void) {
-        self.label = label
-        self.initialName = initialName
-        self.onCommit = onCommit
-        _draft = State(initialValue: initialName)
-    }
-
     var body: some View {
-        HStack {
-            Text(label)
-                .frame(width: 90, alignment: .leading)
-            TextField("Add a name", text: $draft)
+        if isEditing {
+            TextField(placeholder, text: $draft)
                 .textFieldStyle(.roundedBorder)
                 .focused($focused)
-                .onSubmit { commit() }
-        }
-        .onChange(of: focused) { _, isFocused in
-            if !isFocused { commit() }
-        }
-    }
-
-    private func commit() {
-        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed != initialName else { return }
-        Task { await onCommit(trimmed) }
-    }
-}
-
-/// One saved voice: an editable name, recognition metadata, and a forget button.
-private struct VoiceRow: View {
-    let voiceprint: Voiceprint
-    let onRename: (String) async -> Void
-    let onDelete: () async -> Void
-
-    @State private var draft: String
-    @FocusState private var focused: Bool
-
-    init(voiceprint: Voiceprint, onRename: @escaping (String) async -> Void, onDelete: @escaping () async -> Void) {
-        self.voiceprint = voiceprint
-        self.onRename = onRename
-        self.onDelete = onDelete
-        _draft = State(initialValue: voiceprint.name ?? "")
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                TextField("Unnamed voice", text: $draft)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($focused)
-                    .onSubmit { commit() }
-                Button(role: .destructive) {
-                    Task { await onDelete() }
-                } label: {
-                    Image(systemName: "trash")
+                .onAppear { focused = true }
+                .onSubmit(onEndEdit)
+                .onChange(of: focused) { _, isFocused in
+                    if !isFocused { onEndEdit() }
                 }
-                .buttonStyle(.borderless)
-                .help("Forget this voice")
-            }
-            Text(metadata)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        } else {
+            Text(draft.isEmpty ? placeholder : draft)
+                .foregroundStyle(draft.isEmpty ? .secondary : .primary)
+                .onTapGesture(perform: onBeginEdit)
         }
-        .onChange(of: focused) { _, isFocused in
-            if !isFocused { commit() }
-        }
-    }
-
-    private var metadata: String {
-        var parts: [String] = []
-        if let last = voiceprint.lastEnrolledAt {
-            parts.append("Last heard \(last.formatted(date: .abbreviated, time: .omitted))")
-        }
-        parts.append(Self.duration(voiceprint.totalDuration))
-        let count = voiceprint.samples.count
-        parts.append("\(count) sample\(count == 1 ? "" : "s")")
-        return parts.joined(separator: " · ")
-    }
-
-    private func commit() {
-        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed != (voiceprint.name ?? "") else { return }
-        Task { await onRename(trimmed) }
-    }
-
-    private static func duration(_ seconds: Float) -> String {
-        let total = Int(seconds.rounded())
-        return String(format: "%d:%02d", total / 60, total % 60)
     }
 }
