@@ -14,10 +14,10 @@ extension Color {
     /// token) so the same voice keeps its color across a session.
     static func speaker(for key: String) -> Color {
         guard !key.isEmpty else { return speakerPalette[0] }
-        var hash = 5381
+        var hash: UInt = 5381
         for byte in key.utf8 {
-            hash = (hash &* 33) &+ Int(byte)
+            hash = (hash &* 33) &+ UInt(byte)
         }
-        return speakerPalette[abs(hash) % speakerPalette.count]
+        return speakerPalette[Int(hash % UInt(speakerPalette.count))]
     }
 }
