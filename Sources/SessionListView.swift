@@ -32,8 +32,8 @@ struct SessionListView: View {
     }
 }
 
-/// One transcript row: the title with date and tag captions, swapping to an inline rename field on
-/// demand (Freeform-style: Enter or clicking away commits, Esc cancels, empty clears the name).
+/// One transcript row: the title with date and tag captions, swapping to an inline rename field from
+/// the context menu (Enter or clicking away commits, Esc cancels, empty clears the name).
 private struct SessionRow: View {
     let session: SessionSummary
     let model: LabelingModel
@@ -61,13 +61,17 @@ private struct SessionRow: View {
                 TagChips(tags: session.tags)
             }
         }
+        // Fill and hit-test the whole row so the context menu opens from blank space too. No tap
+        // gestures here: even a "simultaneous" one starves the List's row selection of label clicks.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .contextMenu {
-            Button("Rename") { beginRenaming() }
+            Button {
+                beginRenaming()
+            } label: {
+                Label("Rename", systemImage: "pencil")
+            }
         }
-        // An exclusive double-tap gesture holds the first click hostage while it waits for a second,
-        // so clicking the label never reaches row selection; simultaneous recognition lets the click
-        // select immediately while a real double-click still starts the rename.
-        .simultaneousGesture(TapGesture(count: 2).onEnded { beginRenaming() })
     }
 
     private var renameField: some View {

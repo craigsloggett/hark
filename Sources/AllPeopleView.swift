@@ -35,11 +35,17 @@ struct AllPeopleView: View {
 
     @ViewBuilder
     private func rowMenu(_ voice: VoiceSummary) -> some View {
-        Button("Rename…") {
+        Button {
             renameDraft = voice.name ?? ""
             renamingID = voice.id
+        } label: {
+            Label("Rename…", systemImage: "pencil")
         }
-        Button("Forget…", role: .destructive) { forgettingID = voice.id }
+        Button(role: .destructive) {
+            forgettingID = voice.id
+        } label: {
+            Label("Forget…", systemImage: "trash")
+        }
     }
 
     private var footer: some View {

@@ -82,12 +82,16 @@ struct PeopleInspectorView: View {
     @ViewBuilder
     private func rowMenu(_ token: String) -> some View {
         if case let .savedVoice(id) = model.resolver.binding(for: token) {
-            Button("Rename…") {
+            Button {
                 renameDraft = model.resolver.name(for: token) ?? ""
                 renamingID = id
+            } label: {
+                Label("Rename…", systemImage: "pencil")
             }
-            Button("Forget…", role: .destructive) {
+            Button(role: .destructive) {
                 forgettingID = id
+            } label: {
+                Label("Forget…", systemImage: "trash")
             }
         }
     }
