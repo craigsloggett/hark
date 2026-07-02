@@ -9,7 +9,7 @@ final class AudioRecorder {
     enum TranscriptionState: Equatable {
         case idle
         case running
-        case finished(URL)
+        case finished
         case failed(String)
     }
 
@@ -74,7 +74,8 @@ final class AudioRecorder {
         Task {
             do {
                 let transcription = try await transcriber.transcribeSession(at: session, offset: lastSessionOffset)
-                transcriptionState = try .finished(transcriber.write(transcription, to: session))
+                _ = try transcriber.write(transcription, to: session)
+                transcriptionState = .finished
             } catch {
                 logger.error("Transcription failed: \(error, privacy: .public)")
                 transcriptionState = .failed(error.localizedDescription)

@@ -41,6 +41,10 @@ struct SessionsBrowserView: View {
         .onChange(of: recorder.transcriptionState) {
             model.library.reload()
         }
+        // `initial: true` covers a fresh open, where the flag is already set at first evaluation.
+        .onChange(of: SessionsNavigation.shared.wantsLatest, initial: true) {
+            jumpToLatestIfRequested()
+        }
         .onAppear { WindowActivation.shared.didOpen() }
         .onDisappear { WindowActivation.shared.didClose() }
         .confirmationDialog(
@@ -84,6 +88,14 @@ struct SessionsBrowserView: View {
                     }
                 }
             }
+    }
+
+    /// Consumes the menu's one-shot request to select the newest transcript.
+    private func jumpToLatestIfRequested() {
+        guard SessionsNavigation.shared.wantsLatest else { return }
+        SessionsNavigation.shared.wantsLatest = false
+        model.library.reload()
+        model.selection = model.library.sessions.first?.url
     }
 
     /// Drives the duplicate-voice confirmation from the model's pending enroll; dismissing cancels it.

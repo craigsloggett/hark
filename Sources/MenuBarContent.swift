@@ -23,11 +23,9 @@ struct MenuBarContent: View {
         Divider()
 
         Button("Open Last Transcript") {
-            if let lastTranscriptURL {
-                NSWorkspace.shared.open(lastTranscriptURL)
-            }
+            SessionsNavigation.shared.wantsLatest = true
+            openSessions()
         }
-        .disabled(lastTranscriptURL == nil)
 
         Button("Reveal Last Recording in Finder") {
             if let session = recorder.lastSessionURL {
@@ -68,11 +66,6 @@ struct MenuBarContent: View {
         recorder.lastSessionURL != nil
             && !recorder.isRecording
             && recorder.transcriptionState != .running
-    }
-
-    private var lastTranscriptURL: URL? {
-        guard case let .finished(url) = recorder.transcriptionState else { return nil }
-        return url
     }
 
     private func showSettings() {
