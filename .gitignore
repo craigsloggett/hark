@@ -8,9 +8,6 @@ DerivedData/
 # Packaged release artifact
 /hark.zip
 
-# Rendered app screenshots (make screenshots)
-/Screenshots/
-
 # Xcode user state
 xcuserdata/
 *.xcuserstate
