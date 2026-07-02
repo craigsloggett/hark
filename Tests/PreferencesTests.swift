@@ -46,6 +46,8 @@ final class PreferencesTests {
             == ASRConfig().dualDecodeArbitration)
         #expect(defaults.integer(forKey: Preferences.Key.asrParallelChunkConcurrency)
             == ASRConfig().parallelChunkConcurrency)
+        #expect(!defaults.bool(forKey: Preferences.Key.menuBarOnly))
+        #expect(defaults.bool(forKey: Preferences.Key.showMenuBarIcon))
     }
 
     @Test func resolvedFallsBackToDefaultWhenUnset() {

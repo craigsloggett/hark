@@ -2,7 +2,14 @@ import SwiftUI
 
 @main
 struct HarkApp: App {
+    @NSApplicationDelegateAdaptor(HarkAppDelegate.self) private var appDelegate
     @State private var recorder = AudioRecorder.shared
+
+    @AppStorage(Preferences.Key.menuBarOnly)
+    private var isMenuBarOnly = Preferences.Default.isMenuBarOnly
+
+    @AppStorage(Preferences.Key.showMenuBarIcon)
+    private var showsMenuBarIcon = Preferences.Default.showsMenuBarIcon
 
     init() {
         Preferences.register()
@@ -12,7 +19,7 @@ struct HarkApp: App {
     var body: some Scene {
         // MenuBarExtra hosts its label and content in separate views, so the recorder is injected
         // into each closure.
-        MenuBarExtra {
+        MenuBarExtra(isInserted: menuBarIconInserted) {
             MenuBarContent()
                 .environment(recorder)
         } label: {
@@ -30,13 +37,24 @@ struct HarkApp: App {
         .windowResizability(.contentSize)
 
         // The recordings browser and speaker-labeling window. A singleton so re-opening refocuses the
-        // one instance; not state-restored so every appearance flows through the activation counter.
+        // one instance; not state-restored so every appearance flows through the activation counter and
+        // its launch presentation stays governed by the menu-bar-only preference rather than saved state.
         Window("Hark", id: SessionsWindow.id) {
             SessionsBrowserView()
                 .environment(recorder)
         }
-        .defaultLaunchBehavior(.suppressed)
+        .defaultLaunchBehavior(isMenuBarOnly ? .suppressed : .presented)
         .restorationBehavior(.disabled)
         .defaultSize(width: 900, height: 620)
+    }
+
+    /// Forced visible in menu-bar-only mode, where the icon is the only way back into the app. The
+    /// setter still records the user's choice, since macOS writes `false` when the icon is
+    /// command-dragged out of the menu bar.
+    private var menuBarIconInserted: Binding<Bool> {
+        Binding(
+            get: { showsMenuBarIcon || isMenuBarOnly },
+            set: { showsMenuBarIcon = $0 }
+        )
     }
 }

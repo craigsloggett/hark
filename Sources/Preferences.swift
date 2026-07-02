@@ -20,6 +20,8 @@ enum Preferences {
         static let asrDualDecodeArbitration = "asrDualDecodeArbitration"
         static let asrParallelChunkConcurrency = "asrParallelChunkConcurrency"
         static let utteranceGap = "utteranceGap"
+        static let menuBarOnly = "menuBarOnly"
+        static let showMenuBarIcon = "showMenuBarIcon"
     }
 
     /// Defaults, in seconds where applicable. Those that defer to FluidAudio reference its
@@ -98,6 +100,13 @@ enum Preferences {
         static var asrParallelChunkConcurrency: Int {
             ASRConfig().parallelChunkConcurrency
         }
+
+        /// Windowed like a normal Dock app; menu-bar-only is the opt-in "get out of the way" posture.
+        static let isMenuBarOnly = false
+
+        /// Hidden only by explicit choice, and never in menu-bar-only mode where the icon is the only
+        /// way back into the app.
+        static let showsMenuBarIcon = true
     }
 
     /// Seeds the registration domain so `defaults read` shows the effective defaults (reads fall
@@ -119,6 +128,8 @@ enum Preferences {
             Key.asrDualDecodeArbitration: Default.asrUsesDualDecodeArbitration,
             Key.asrParallelChunkConcurrency: Default.asrParallelChunkConcurrency,
             Key.utteranceGap: Default.utteranceGap,
+            Key.menuBarOnly: Default.isMenuBarOnly,
+            Key.showMenuBarIcon: Default.showsMenuBarIcon,
         ])
     }
 
@@ -180,6 +191,14 @@ enum Preferences {
 
     static var utteranceGap: Double {
         resolved(Key.utteranceGap, default: Default.utteranceGap)
+    }
+
+    static var isMenuBarOnly: Bool {
+        resolved(Key.menuBarOnly, default: Default.isMenuBarOnly)
+    }
+
+    static var showsMenuBarIcon: Bool {
+        resolved(Key.showMenuBarIcon, default: Default.showsMenuBarIcon)
     }
 
     /// The stored `Double` for `key`, or `fallback` when it is unset.
