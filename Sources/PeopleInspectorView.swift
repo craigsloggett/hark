@@ -50,9 +50,9 @@ struct PeopleInspectorView: View {
 
     @ViewBuilder
     private func rowMenu(_ token: String) -> some View {
-        if case let .savedVoice(id) = model.binding(token: token) {
+        if case let .savedVoice(id) = model.resolver.binding(for: token) {
             Button("Rename Saved Voice…") {
-                renameDraft = model.displayName(token: token) ?? ""
+                renameDraft = model.resolver.name(for: token) ?? ""
                 renamingID = id
             }
             Button("Forget This Voice…", role: .destructive) {
@@ -67,7 +67,7 @@ private struct PersonRow: View {
     let model: LabelingModel
 
     var body: some View {
-        let name = model.displayName(token: token)
+        let name = model.resolver.name(for: token)
         let isYou = token == Speaker.you.token
         HStack(spacing: 9) {
             Circle()

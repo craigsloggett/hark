@@ -11,15 +11,15 @@ struct SpeakerPopover: View {
     @State private var draft = ""
 
     var body: some View {
-        let binding = model.binding(token: token)
-        let tentative = model.isLikelyMatch(token: token)
+        let binding = model.resolver.binding(for: token)
+        let tentative = model.resolver.isLikelyMatch(for: token)
         VStack(alignment: .leading, spacing: 12) {
             header(binding, tentative: tentative)
             content(for: binding, tentative: tentative)
         }
         .padding(14)
         .frame(width: 272)
-        .onAppear { draft = model.displayName(token: token) ?? "" }
+        .onAppear { draft = model.resolver.name(for: token) ?? "" }
     }
 
     @ViewBuilder
@@ -52,7 +52,7 @@ struct SpeakerPopover: View {
             knownList(title: "Someone you know")
             addNewButton
         case .savedVoice:
-            if model.displayName(token: token) == nil {
+            if model.resolver.name(for: token) == nil {
                 // Recognized but unnamed: name the saved voice in place, so the user isn't pushed to
                 // "Add as a new voice" and fork this speaker into a duplicate identity.
                 nameField(
@@ -63,7 +63,7 @@ struct SpeakerPopover: View {
             }
             savedVoiceActions(tentative: tentative)
             knownList(title: "Switch to someone else")
-            if model.displayName(token: token) != nil {
+            if model.resolver.name(for: token) != nil {
                 addNewButton
             }
         }
@@ -73,7 +73,7 @@ struct SpeakerPopover: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {
                 Circle().fill(model.color(for: token)).frame(width: 10, height: 10)
-                Text(model.displayName(token: token) ?? model.positionalLabel(token: token))
+                Text(model.resolver.name(for: token) ?? model.positionalLabel(token: token))
                     .font(.headline)
             }
             Text(subtitle(for: binding, tentative: tentative))
@@ -96,7 +96,7 @@ struct SpeakerPopover: View {
     private func savedVoiceSubtitle(tentative: Bool) -> String {
         let base = if tentative {
             "Possible match"
-        } else if model.displayName(token: token) == nil {
+        } else if model.resolver.name(for: token) == nil {
             "Recognized, not yet named"
         } else {
             "Saved voice"
@@ -109,11 +109,11 @@ struct SpeakerPopover: View {
     private func savedVoiceActions(tentative: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             if tentative {
-                actionRow("Yes, it's \(model.displayName(token: token) ?? "them")", systemImage: "checkmark.circle") {
+                actionRow("Yes, it's \(model.resolver.name(for: token) ?? "them")", systemImage: "checkmark.circle") {
                     await model.confirmMatch(token: token)
                 }
             }
-            actionRow("Not \(model.displayName(token: token) ?? "this person")", systemImage: "person.fill.xmark") {
+            actionRow("Not \(model.resolver.name(for: token) ?? "this person")", systemImage: "person.fill.xmark") {
                 await model.unassign(token: token)
             }
             if model.canEnroll(token: token) {

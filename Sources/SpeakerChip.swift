@@ -11,7 +11,7 @@ struct SpeakerChip: View {
     @State private var hovering = false
 
     var body: some View {
-        let tentative = model.isLikelyMatch(token: token)
+        let tentative = model.resolver.isLikelyMatch(for: token)
         HStack(spacing: 5) {
             chip(tentative: tentative)
             if tentative {
@@ -26,7 +26,7 @@ struct SpeakerChip: View {
     }
 
     private func chip(tentative: Bool) -> some View {
-        let binding = model.binding(token: token)
+        let binding = model.resolver.binding(for: token)
         let color = model.color(for: token)
         return Button {
             showsPopover = true
@@ -80,17 +80,17 @@ struct SpeakerChip: View {
     }
 
     private func chipLabel(tentative: Bool) -> String {
-        let name = model.displayName(token: token)
+        let name = model.resolver.name(for: token)
         guard tentative, let name else { return name ?? model.positionalLabel(token: token) }
         return "Likely \(name)"
     }
 
     private var helpConfirm: String {
-        "Confirm this is \(model.displayName(token: token) ?? "them")"
+        "Confirm this is \(model.resolver.name(for: token) ?? "them")"
     }
 
     private var helpReject: String {
-        "Not \(model.displayName(token: token) ?? "them")"
+        "Not \(model.resolver.name(for: token) ?? "them")"
     }
 
     private func glyph(for binding: SpeakerBinding) -> String {
@@ -109,7 +109,7 @@ struct SpeakerChip: View {
         case .unknown: return "Unidentified speaker. Click to name or assign."
         case .localLabel: return "Labeled for this transcript only. Click to change."
         case .savedVoice:
-            let name = model.displayName(token: token)
+            let name = model.resolver.name(for: token)
             return "Saved voice\(name.map { ": \($0)" } ?? ""). Click to change or unassign."
         }
     }

@@ -30,7 +30,7 @@ struct SessionSpeakerTests {
         #expect(try JSONDecoder().decode(SessionSpeaker.self, from: Data(json.utf8)) == speaker)
     }
 
-    // MARK: SpeakerDisplay precedence
+    // MARK: SpeakerResolver precedence
 
     private func voiceprint(_ id: String, name: String?, redirectID: String? = nil) -> Voiceprint {
         Voiceprint(id: id, name: name, samples: [], redirectID: redirectID)
@@ -39,22 +39,22 @@ struct SessionSpeakerTests {
     @Test func overrideWinsOverVoiceprintName() {
         let overlay = ["speaker1": SessionSpeaker(voiceprintID: "v1", nameOverride: "Chair")]
         let byID = ["v1": voiceprint("v1", name: "Ada")]
-        #expect(SpeakerDisplay.name(token: "speaker1", overlay: overlay, voiceprints: byID) == "Chair")
+        #expect(SpeakerResolver(overlay: overlay, voiceprints: byID).name(for: "speaker1") == "Chair")
     }
 
     @Test func fallsBackToVoiceprintName() {
         let overlay = ["speaker1": SessionSpeaker(voiceprintID: "v1")]
         let byID = ["v1": voiceprint("v1", name: "Ada")]
-        #expect(SpeakerDisplay.name(token: "speaker1", overlay: overlay, voiceprints: byID) == "Ada")
+        #expect(SpeakerResolver(overlay: overlay, voiceprints: byID).name(for: "speaker1") == "Ada")
     }
 
     @Test func unlabeledWhenNoOverrideAndNoName() {
         let unnamed = ["v1": voiceprint("v1", name: nil)]
         let bound = ["speaker1": SessionSpeaker(voiceprintID: "v1")]
-        #expect(SpeakerDisplay.name(token: "speaker1", overlay: bound, voiceprints: unnamed) == nil)
+        #expect(SpeakerResolver(overlay: bound, voiceprints: unnamed).name(for: "speaker1") == nil)
         // Positional-only (no binding) is also unlabeled.
         let positional = ["speaker2": SessionSpeaker()]
-        #expect(SpeakerDisplay.name(token: "speaker2", overlay: positional, voiceprints: [:]) == nil)
+        #expect(SpeakerResolver(overlay: positional, voiceprints: [:]).name(for: "speaker2") == nil)
     }
 
     @Test func followsMergeRedirect() {
@@ -63,7 +63,7 @@ struct SessionSpeakerTests {
             "old": voiceprint("old", name: nil, redirectID: "new"),
             "new": voiceprint("new", name: "Ada"),
         ]
-        #expect(SpeakerDisplay.name(token: "speaker1", overlay: overlay, voiceprints: byID) == "Ada")
+        #expect(SpeakerResolver(overlay: overlay, voiceprints: byID).name(for: "speaker1") == "Ada")
     }
 
     @Test func namesDropsUnlabeledTokens() {
@@ -72,37 +72,37 @@ struct SessionSpeakerTests {
             "speaker2": SessionSpeaker(),
         ]
         let byID = ["v1": voiceprint("v1", name: "Ada")]
-        #expect(SpeakerDisplay.names(overlay: overlay, voiceprints: byID) == ["speaker1": "Ada"])
+        #expect(SpeakerResolver(overlay: overlay, voiceprints: byID).names() == ["speaker1": "Ada"])
     }
 
     // MARK: SpeakerBinding classification
 
     @Test func bindingIsUnknownWithoutLabelOrVoice() {
         let overlay = ["speaker1": SessionSpeaker()]
-        #expect(SpeakerDisplay.binding(token: "speaker1", overlay: overlay, voiceprints: [:]) == .unknown)
+        #expect(SpeakerResolver(overlay: overlay, voiceprints: [:]).binding(for: "speaker1") == .unknown)
         // A missing token is unknown too.
-        #expect(SpeakerDisplay.binding(token: "absent", overlay: overlay, voiceprints: [:]) == .unknown)
+        #expect(SpeakerResolver(overlay: overlay, voiceprints: [:]).binding(for: "absent") == .unknown)
     }
 
     @Test func bindingIsLocalLabelForAnOverrideOnly() {
         let overlay = ["speaker1": SessionSpeaker(nameOverride: "Chair")]
-        #expect(SpeakerDisplay.binding(token: "speaker1", overlay: overlay, voiceprints: [:]) == .localLabel("Chair"))
+        #expect(SpeakerResolver(overlay: overlay, voiceprints: [:]).binding(for: "speaker1") == .localLabel("Chair"))
     }
 
     @Test func bindingIsSavedVoiceEvenWhenOverridden() {
         let overlay = ["speaker1": SessionSpeaker(voiceprintID: "v1", nameOverride: "Chair")]
         let byID = ["v1": voiceprint("v1", name: "Ada")]
         // A bound voice wins over the transcript label, so saved-voice actions apply.
-        #expect(SpeakerDisplay.binding(token: "speaker1", overlay: overlay, voiceprints: byID) == .savedVoice(id: "v1"))
+        #expect(SpeakerResolver(overlay: overlay, voiceprints: byID).binding(for: "speaker1") == .savedVoice(id: "v1"))
     }
 
     @Test func bindingDegradesWhenTheVoiceIsForgotten() {
         // The binding points at a voiceprint that is no longer in the database.
         let boundOnly = ["speaker1": SessionSpeaker(voiceprintID: "gone")]
-        #expect(SpeakerDisplay.binding(token: "speaker1", overlay: boundOnly, voiceprints: [:]) == .unknown)
+        #expect(SpeakerResolver(overlay: boundOnly, voiceprints: [:]).binding(for: "speaker1") == .unknown)
         // With a surviving label it falls back to that label rather than a dead binding.
         let labeled = ["speaker1": SessionSpeaker(voiceprintID: "gone", nameOverride: "Chair")]
-        #expect(SpeakerDisplay.binding(token: "speaker1", overlay: labeled, voiceprints: [:]) == .localLabel("Chair"))
+        #expect(SpeakerResolver(overlay: labeled, voiceprints: [:]).binding(for: "speaker1") == .localLabel("Chair"))
     }
 
     // MARK: Likely-match confidence
@@ -110,9 +110,8 @@ struct SessionSpeakerTests {
     private let byAda = ["v1": Voiceprint(id: "v1", name: "Ada", samples: [])]
 
     private func isLikely(_ speaker: SessionSpeaker, above: Float = 0.4) -> Bool {
-        SpeakerDisplay.isLikelyMatch(
-            token: "speaker1", overlay: ["speaker1": speaker], voiceprints: byAda, likelyAbove: above
-        )
+        SpeakerResolver(overlay: ["speaker1": speaker], voiceprints: byAda, likelyAbove: above)
+            .isLikelyMatch(for: "speaker1")
     }
 
     @Test func likelyWhenBorderlineUnconfirmedMatch() {
@@ -140,8 +139,7 @@ struct SessionSpeakerTests {
     @Test func notLikelyWhenVoiceIsUnnamed() {
         let unnamed = ["v1": voiceprint("v1", name: nil)]
         let overlay = ["speaker1": SessionSpeaker(voiceprintID: "v1", matchDistance: 0.5)]
-        #expect(!SpeakerDisplay.isLikelyMatch(
-            token: "speaker1", overlay: overlay, voiceprints: unnamed, likelyAbove: 0.4
-        ))
+        #expect(!SpeakerResolver(overlay: overlay, voiceprints: unnamed, likelyAbove: 0.4)
+            .isLikelyMatch(for: "speaker1"))
     }
 }

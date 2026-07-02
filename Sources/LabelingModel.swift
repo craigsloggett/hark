@@ -151,33 +151,9 @@ final class LabelingModel {
 
     // MARK: Display
 
-    /// The resolved key that groups turns and colors chips: the bound voiceprint (following merge
-    /// redirects, so tokens merged elsewhere still collapse), else the token.
-    private func identityKey(_ token: String) -> String {
-        guard let id = detail?.overlay[token]?.voiceprintID else { return token }
-        return Voiceprint.survivor(of: id, in: voiceprintsByID)?.id ?? id
-    }
-
-    func displayName(token: String) -> String? {
-        guard let detail else { return nil }
-        return SpeakerDisplay.name(token: token, overlay: detail.overlay, voiceprints: voiceprintsByID)
-    }
-
-    /// The chip's editing state, driving both its look and the popover's actions.
-    func binding(token: String) -> SpeakerBinding {
-        guard let detail else { return .unknown }
-        return SpeakerDisplay.binding(token: token, overlay: detail.overlay, voiceprints: voiceprintsByID)
-    }
-
-    /// Whether the token is a borderline auto-match worth confirming, shown as "Likely <name>".
-    func isLikelyMatch(token: String) -> Bool {
-        guard let detail else { return false }
-        return SpeakerDisplay.isLikelyMatch(
-            token: token,
-            overlay: detail.overlay,
-            voiceprints: voiceprintsByID,
-            likelyAbove: Float(Preferences.speakerConfidentMatchThreshold)
-        )
+    /// Display resolution over the loaded overlay (empty when none) and the voiceprint snapshot.
+    var resolver: SpeakerResolver {
+        SpeakerResolver(overlay: detail?.overlay ?? [:], voiceprints: voiceprintsByID)
     }
 
     func positionalLabel(token: String) -> String {
@@ -185,15 +161,17 @@ final class LabelingModel {
     }
 
     func color(for token: String) -> Color {
-        .speaker(for: identityKey(token))
+        .speaker(for: resolver.identityKey(for: token))
     }
 
     var turnGroups: [TurnGroup] {
         guard let detail else { return [] }
+        let resolver = resolver
         var groups: [TurnGroup] = []
         for segment in detail.segments {
             let token = segment.speaker.token
-            if let last = groups.indices.last, identityKey(groups[last].token) == identityKey(token) {
+            let key = resolver.identityKey(for: token)
+            if let last = groups.indices.last, resolver.identityKey(for: groups[last].token) == key {
                 groups[last].segments.append(segment)
             } else {
                 groups.append(TurnGroup(id: groups.count, token: token, speaker: segment.speaker, segments: [segment]))
