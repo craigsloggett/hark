@@ -72,9 +72,12 @@ struct LabelingModelTests {
         )
         let model = LabelingModel.preview(detail: detail)
 
-        #expect(model.speakingTime(token: "you") == "1min 14s")
-        #expect(model.speakingTime(token: "speaker1") == "9s")
+        #expect(model.speakingSeconds(token: "you") == 74)
+        #expect(model.speakingSeconds(token: "speaker1") == 9)
         // Under a second of speech reads as noise, not a stat worth a subtitle slot.
-        #expect(model.speakingTime(token: "speaker2") == nil)
+        #expect(model.speakingSeconds(token: "speaker2") == nil)
+        // The narrow unit rendering varies by OS build ("1m 14s" vs "1min 14s"), so the formatted
+        // form is only pinned as present.
+        #expect(model.speakingTime(token: "you") != nil)
     }
 }

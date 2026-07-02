@@ -187,14 +187,20 @@ final class LabelingModel {
 
     /// The speaker's total speech in this transcript ("2m 14s"), or `nil` under a second of it.
     func speakingTime(token: String) -> String? {
+        guard let seconds = speakingSeconds(token: token) else { return nil }
+        return Duration.seconds(seconds).formatted(
+            .units(allowed: [.hours, .minutes, .seconds], width: .narrow, maximumUnitCount: 2)
+        )
+    }
+
+    /// The summed segment durations behind `speakingTime`; `nil` under one second, which reads as
+    /// noise rather than a stat worth a subtitle slot.
+    func speakingSeconds(token: String) -> Double? {
         guard let detail else { return nil }
         let seconds = detail.segments
             .filter { $0.speaker.token == token }
             .reduce(0.0) { $0 + max(0, $1.end - $1.start) }
-        guard seconds >= 1 else { return nil }
-        return Duration.seconds(seconds).formatted(
-            .units(allowed: [.hours, .minutes, .seconds], width: .narrow, maximumUnitCount: 2)
-        )
+        return seconds >= 1 ? seconds : nil
     }
 
     /// How many recordings a token's bound voice appears in beyond this one, for the roster subtitle.
