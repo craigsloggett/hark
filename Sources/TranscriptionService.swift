@@ -100,8 +100,7 @@ struct TranscriptionService {
         let session = Session(url: sessionURL)
         let segments = try session.loadSegments()
         let overlay = try session.loadSpeakers()
-        let byID = Dictionary(voiceprints.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let names = SpeakerResolver(overlay: overlay, voiceprints: byID).names()
+        let names = SpeakerResolver(overlay: overlay, voiceprints: voiceprints.byID).names()
         let text = Transcript(segments: segments).plainText(names: names) + "\n"
         try text.write(to: session.transcriptText, atomically: true, encoding: .utf8)
     }

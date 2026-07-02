@@ -107,7 +107,7 @@ final class LabelingModel {
 
     func refreshVoiceprints() async {
         let all = await attempt("Load voiceprints") { try await SpeakerStore.shared.voiceprints() } ?? []
-        voiceprintsByID = Dictionary(all.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        voiceprintsByID = all.byID
     }
 
     func loadSelected() async {
@@ -196,9 +196,14 @@ final class LabelingModel {
     }
 
     func sampleCount(token: String) -> Int {
-        guard let id = detail?.overlay[token]?.voiceprintID,
+        let speaker = detail?.overlay[token]
+        guard let id = speaker?.voiceprintID,
               let voiceprint = Voiceprint.survivor(of: id, in: voiceprintsByID)
-        else { return detail?.overlay[token]?.embedding == nil ? 0 : 1 }
+        else {
+            // The stored diarized centroid counts as one enrollable sample before any voiceprint exists.
+            let hasEnrollableSample = speaker?.embedding != nil
+            return hasEnrollableSample ? 1 : 0
+        }
         return voiceprint.samples.count
     }
 
@@ -214,7 +219,7 @@ final class LabelingModel {
     func assignableVoiceprints(excluding token: String) -> [Voiceprint] {
         let bound = detail?.overlay[token]?.voiceprintID
         return voiceprintsByID.values
-            .filter { $0.redirectID == nil && $0.name != nil && $0.id != bound }
+            .filter { !$0.isTombstone && $0.name != nil && $0.id != bound }
             .sorted { ($0.name ?? "") < ($1.name ?? "") }
     }
 
@@ -284,9 +289,7 @@ final class LabelingModel {
         ) -> LabelingModel {
             let model = LabelingModel()
             model.detail = detail
-            model.voiceprintsByID = Dictionary(
-                voiceprints.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }
-            )
+            model.voiceprintsByID = voiceprints.byID
             model.voiceUsage = usage
             model.duplicateSuggestions = suggestions
             return model

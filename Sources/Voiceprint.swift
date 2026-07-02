@@ -32,6 +32,11 @@ struct Voiceprint: Codable, Equatable {
         self.redirectID = redirectID
     }
 
+    /// Whether this voiceprint was merged away and now only redirects to its survivor.
+    var isTombstone: Bool {
+        redirectID != nil
+    }
+
     /// The samples' duration-weighted mean embedding, the vector matched against. A single-sample
     /// print returns that embedding unchanged.
     var centroid: [Float] {
@@ -70,6 +75,13 @@ struct Voiceprint: Codable, Equatable {
 }
 
 extension Voiceprint: Identifiable {}
+
+extension [Voiceprint] {
+    /// The voiceprints keyed by id. Ids are unique by construction; the uniquing is defensive.
+    var byID: [String: Voiceprint] {
+        Dictionary(map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+}
 
 /// Copy helpers for the store's edits, so every construction flows through the capping initializer.
 extension Voiceprint {

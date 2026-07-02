@@ -6,7 +6,7 @@ extension LabelingModel {
     /// Every surviving saved voice, named ones first (alphabetically), then unnamed by id.
     var voices: [VoiceSummary] {
         voiceprintsByID.values
-            .filter { $0.redirectID == nil }
+            .filter { !$0.isTombstone }
             .map(summary(for:))
             .sorted(by: Self.voiceOrdering)
     }

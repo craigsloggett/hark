@@ -83,7 +83,7 @@ actor SpeakerStore {
 
     /// The surviving voiceprint for an id, following merge redirects, or `nil` if unknown.
     func voiceprint(id: String) throws -> Voiceprint? {
-        try Voiceprint.survivor(of: id, in: byID(load()))
+        try Voiceprint.survivor(of: id, in: load().byID)
     }
 
     /// Sets (or clears) a voiceprint's name, following merge redirects to the survivor. Whitespace-only
@@ -170,7 +170,7 @@ actor SpeakerStore {
     func nearestNamed(to embedding: [Float]) throws -> (voiceprint: Voiceprint, distance: Float)? {
         guard embedding.count == SpeakerManager.embeddingSize else { return nil }
         let named = try load().filter {
-            $0.redirectID == nil && $0.name != nil && $0.centroid.count == SpeakerManager.embeddingSize
+            !$0.isTombstone && $0.name != nil && $0.centroid.count == SpeakerManager.embeddingSize
         }
         guard !named.isEmpty else { return nil }
         // Seed permissively (threshold 2 spans the cosine-distance range) so the query ranks every
@@ -186,11 +186,11 @@ actor SpeakerStore {
     /// for surfacing likely duplicate voices to merge. Each pair appears once; self-pairs are excluded.
     func duplicatePairs(within distance: Float) throws -> [VoicePair] {
         let survivors = try load().filter {
-            $0.redirectID == nil && $0.centroid.count == SpeakerManager.embeddingSize
+            !$0.isTombstone && $0.centroid.count == SpeakerManager.embeddingSize
         }
         guard survivors.count > 1 else { return [] }
         let snapshot = matcher(seededWith: survivors, threshold: 2)
-        let lookup = byID(survivors)
+        let lookup = survivors.byID
         var pairs: [VoicePair] = []
         var seen: Set<String> = []
         for voiceprint in survivors {
@@ -204,14 +204,10 @@ actor SpeakerStore {
         return pairs.sorted { $0.distance < $1.distance }
     }
 
-    private func byID(_ voiceprints: [Voiceprint]) -> [String: Voiceprint] {
-        Dictionary(voiceprints.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-    }
-
     /// The array index of the surviving voiceprint for `id`. Sessions merged elsewhere can still hold
     /// a tombstoned id, so every edit resolves to the survivor rather than mutating a tombstone.
     private func survivorIndex(of id: String, in voiceprints: [Voiceprint]) -> Int? {
-        guard let survivor = Voiceprint.survivor(of: id, in: byID(voiceprints)) else { return nil }
+        guard let survivor = Voiceprint.survivor(of: id, in: voiceprints.byID) else { return nil }
         return voiceprints.firstIndex { $0.id == survivor.id }
     }
 
@@ -225,7 +221,7 @@ actor SpeakerStore {
         threshold: Float,
         enrollFloor: Float
     ) -> (resolved: [String: SpeakerIdentity], enrolled: [Voiceprint]) {
-        let byID = byID(known)
+        let byID = known.byID
         var claimed: Set<String> = []
         var enrolled: [Voiceprint] = []
         var resolved: [String: SpeakerIdentity] = [:]
@@ -262,7 +258,7 @@ actor SpeakerStore {
     /// naming FluidAudio's `Speaker`, which a same-named module type shadows.
     private func matcher(seededWith known: [Voiceprint], threshold: Float) -> SpeakerManager {
         var manager = SpeakerManager(speakerThreshold: threshold)
-        for voiceprint in known where voiceprint.redirectID == nil {
+        for voiceprint in known where !voiceprint.isTombstone {
             let centroid = voiceprint.centroid
             guard centroid.count == SpeakerManager.embeddingSize else { continue }
             manager.upsertSpeaker(

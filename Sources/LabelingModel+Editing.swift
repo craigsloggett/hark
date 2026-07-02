@@ -135,7 +135,7 @@ extension LabelingModel {
     /// A non-tombstoned saved voice whose name equals `name`, case-insensitively.
     private func namedVoice(matching name: String) -> Voiceprint? {
         voiceprintsByID.values.first { voiceprint in
-            voiceprint.redirectID == nil && voiceprint.name?.caseInsensitiveCompare(name) == .orderedSame
+            !voiceprint.isTombstone && voiceprint.name?.caseInsensitiveCompare(name) == .orderedSame
         }
     }
 
