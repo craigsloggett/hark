@@ -6,23 +6,34 @@ struct TranscriptChatView: View {
     let model: LabelingModel
 
     var body: some View {
-        Group {
-            if model.detail == nil {
-                ContentUnavailableView("Select a recording", systemImage: "text.bubble")
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 12) {
-                        ForEach(model.turnGroups) { group in
-                            TurnGroupView(group: group, model: model)
-                        }
+        if model.detail == nil {
+            ContentUnavailableView("Select a recording", systemImage: "text.bubble")
+                .navigationTitle("Transcript")
+        } else {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    ForEach(model.turnGroups) { group in
+                        TurnGroupView(group: group, model: model)
                     }
-                    .padding(20)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .navigationTitle(sessionTitle)
+            .navigationSubtitle(model.currentSubtitle)
         }
-        .navigationTitle("Transcript")
-        .navigationSubtitle(model.detail == nil ? "" : model.currentTitle)
+    }
+
+    /// The titlebar title doubles as the native rename affordance; committing an edit renames the
+    /// session, and `renameSession`'s guards drop a commit that leaves the shown text unchanged.
+    private var sessionTitle: Binding<String> {
+        Binding(
+            get: { model.currentTitle },
+            set: { newValue in
+                guard let url = model.selection else { return }
+                Task { await model.renameSession(url, to: newValue) }
+            }
+        )
     }
 }
 

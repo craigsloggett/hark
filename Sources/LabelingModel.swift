@@ -125,8 +125,18 @@ final class LabelingModel {
         voiceUsage = library.voiceUsage(resolving: voiceprintsByID)
     }
 
+    var currentSummary: SessionSummary? {
+        library.sessions.first { $0.url == selection }
+    }
+
     var currentTitle: String {
-        library.sessions.first { $0.url == selection }?.title ?? "Recording"
+        currentSummary?.title ?? "Recording"
+    }
+
+    /// The recording date, shown under the titlebar name only when a custom name displaces it.
+    var currentSubtitle: String {
+        guard let summary = currentSummary, summary.name != nil else { return "" }
+        return summary.dateLabel
     }
 
     // MARK: Display

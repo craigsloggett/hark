@@ -6,6 +6,7 @@ struct SessionsBrowserView: View {
     @Environment(AudioRecorder.self) private var recorder
     @State private var model = LabelingModel()
     @State private var showsPeople = true
+    @State private var showsTags = false
 
     var body: some View {
         NavigationSplitView {
@@ -68,6 +69,17 @@ struct SessionsBrowserView: View {
                         .inspectorColumnWidth(min: 220, ideal: 260, max: 340)
                 }
                 .toolbar {
+                    ToolbarItem {
+                        Button {
+                            showsTags = true
+                        } label: {
+                            Label("Tags", systemImage: "tag")
+                        }
+                        .disabled(model.selection == nil)
+                        .popover(isPresented: $showsTags, arrowEdge: .bottom) {
+                            SessionTagsPopover(model: model)
+                        }
+                    }
                     ToolbarItem {
                         Button {
                             showsPeople.toggle()

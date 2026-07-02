@@ -1,16 +1,30 @@
 import Foundation
 
-/// One recording in the browser list, titled by when it was recorded (sessions have no name).
+/// One recording in the browser list, titled by its user-assigned name when it has one, otherwise by
+/// when it was recorded.
 struct SessionSummary: Identifiable, Hashable {
     let url: URL
     let date: Date
+    var metadata = SessionMetadata()
 
     var id: URL {
         url
     }
 
-    var title: String {
+    var name: String? {
+        metadata.name
+    }
+
+    var tags: [String] {
+        metadata.tags
+    }
+
+    var dateLabel: String {
         date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    var title: String {
+        name ?? dateLabel
     }
 }
 
@@ -43,9 +57,17 @@ final class SessionLibrary {
                 guard let date = AudioRecorder.date(from: url.lastPathComponent),
                       manager.fileExists(atPath: Session(url: url).transcriptJSON.path)
                 else { return nil }
-                return SessionSummary(url: url, date: date)
+                // A corrupt metadata file degrades to no name rather than dropping the session.
+                let metadata = (try? Session(url: url).loadMetadata()) ?? SessionMetadata()
+                return SessionSummary(url: url, date: date, metadata: metadata)
             }
             .sorted { $0.date > $1.date }
+    }
+
+    /// Updates one row's metadata in place, so an edit doesn't rebuild the list or disturb selection.
+    func updateMetadata(_ metadata: SessionMetadata, for url: URL) {
+        guard let index = sessions.firstIndex(where: { $0.url == url }) else { return }
+        sessions[index].metadata = metadata
     }
 
     func loadDetail(_ url: URL) throws -> SessionDetail {
