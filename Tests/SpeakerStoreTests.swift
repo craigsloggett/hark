@@ -236,19 +236,6 @@ final class SpeakerStoreTests {
         #expect(near == nil)
     }
 
-    @Test func duplicatePairsSurfaceNearIdenticalVoices() async throws {
-        let store = SpeakerStore(directory: directory)
-        let ada = try await store.enroll(embedding: embedding([1]), duration: 3, name: "Ada")
-        let adaAgain = try await store.enroll(embedding: embedding([1, 0.01]), duration: 3, name: nil)
-        _ = try await store.enroll(embedding: embedding([0, 1]), duration: 3, name: "Bo") // orthogonal, far
-
-        // Only the two near-identical prints pair up; the orthogonal voice is well past the window.
-        let pairs = try await store.duplicatePairs(within: 0.4)
-        let pair = try #require(pairs.first)
-        #expect(pairs.count == 1)
-        #expect(Set([pair.first.id, pair.second.id]) == Set([ada.id, adaAgain.id]))
-    }
-
     @Test func replaceAllRestoresAnEarlierSnapshot() async throws {
         let store = SpeakerStore(directory: directory)
         let ada = try await store.enroll(embedding: embedding([1]), duration: 3, name: "Ada")

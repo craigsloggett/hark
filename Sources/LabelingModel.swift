@@ -33,8 +33,6 @@ final class LabelingModel {
     private(set) var voiceprintsByID: [String: Voiceprint] = [:]
     /// Surviving voiceprint id to the number of recordings it appears in, for the People inspector.
     private(set) var voiceUsage: [String: Int] = [:]
-    /// Near-identical saved voices offered for merging in the global manager.
-    private(set) var duplicateSuggestions: [DuplicateSuggestion] = []
     /// A duplicate a deliberate enroll would create: set instead of enrolling, so the UI can offer to
     /// reuse the existing voice. `nil` when no enroll is awaiting that choice.
     var pendingEnrollment: PendingEnrollment?
@@ -121,28 +119,10 @@ final class LabelingModel {
             detail = nil
         }
         refreshUsage()
-        await refreshDuplicateSuggestions()
     }
 
     private func refreshUsage() {
         voiceUsage = library.voiceUsage(resolving: voiceprintsByID)
-    }
-
-    /// Recomputes the global manager's near-identical voice pairs, keeping only those with at least one
-    /// named side (so there is a name to merge toward), the named side as the target. Here rather than
-    /// in the sibling file because it sets the `private(set)` list.
-    func refreshDuplicateSuggestions() async {
-        let threshold = Float(Preferences.speakerConfidentMatchThreshold)
-        let pairs = await attempt("Scan for duplicates") {
-            try await SpeakerStore.shared.duplicatePairs(within: threshold)
-        } ?? []
-        duplicateSuggestions = pairs.compactMap { pair in
-            guard pair.first.name != nil || pair.second.name != nil else { return nil }
-            let first = summary(for: pair.first)
-            let second = summary(for: pair.second)
-            let (primary, secondary) = first.isNamed || !second.isNamed ? (first, second) : (second, first)
-            return DuplicateSuggestion(primary: primary, secondary: secondary, distance: pair.distance)
-        }
     }
 
     var currentTitle: String {
@@ -248,9 +228,6 @@ final class LabelingModel {
         }
         await persist()
         refreshUsage()
-        if reloadDatabase {
-            await refreshDuplicateSuggestions()
-        }
     }
 
     /// Writes the overlay and re-renders `transcript.txt` with the current voiceprint names.

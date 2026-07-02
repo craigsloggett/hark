@@ -37,45 +37,12 @@ struct VoicesManagerView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
-            if !model.duplicateSuggestions.isEmpty {
-                suggestions
-                Divider()
-            }
             List(model.voices, selection: $model.voicesSelection) { voice in
                 VoiceRow(voice: voice)
                     .contextMenu { rowMenu(voice) }
             }
             Divider()
             mergeFooter
-        }
-    }
-
-    private var suggestions: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label("Possible duplicates", systemImage: "sparkles")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            ForEach(model.duplicateSuggestions) { suggestion in
-                suggestionRow(suggestion)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(Color.yellow.opacity(0.09))
-    }
-
-    private func suggestionRow(_ suggestion: DuplicateSuggestion) -> some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text("\(suggestion.primary.displayName) and \(suggestion.secondary.displayName)")
-                    .font(.callout)
-                Text("Sound alike. Merge into \(suggestion.primary.displayName)?")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Button("Merge") { Task { await model.mergeSuggestion(suggestion) } }
-                .buttonStyle(.borderless)
         }
     }
 

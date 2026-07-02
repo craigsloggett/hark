@@ -21,10 +21,6 @@ extension LabelingModel {
         await mergeVoices(ids[0], ids[1])
     }
 
-    func mergeSuggestion(_ suggestion: DuplicateSuggestion) async {
-        await mergeVoices(suggestion.primary.id, suggestion.secondary.id)
-    }
-
     private func mergeVoices(_ first: String, _ second: String) async {
         guard first != second else { return }
         recordUndo("Merge Voices")
@@ -34,9 +30,7 @@ extension LabelingModel {
         await finishEdit(reloadDatabase: true)
     }
 
-    /// Builds a manager row summary for a voiceprint. Internal so the sibling file's
-    /// `refreshDuplicateSuggestions` (which sets the `private(set)` list) can reuse it.
-    func summary(for voiceprint: Voiceprint) -> VoiceSummary {
+    private func summary(for voiceprint: Voiceprint) -> VoiceSummary {
         VoiceSummary(
             id: voiceprint.id,
             name: voiceprint.name,

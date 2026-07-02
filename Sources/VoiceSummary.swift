@@ -13,15 +13,3 @@ struct VoiceSummary: Identifiable, Equatable {
         name ?? "Unnamed voice"
     }
 }
-
-/// A pair of saved voices that sound alike, offered for one-tap merging. `primary` is the merge
-/// target, the named side when only one is named.
-struct DuplicateSuggestion: Identifiable, Equatable {
-    let primary: VoiceSummary
-    let secondary: VoiceSummary
-    let distance: Float
-
-    var id: String {
-        primary.id + "|" + secondary.id
-    }
-}
