@@ -62,11 +62,6 @@ struct Voiceprint: Codable, Equatable {
         samples.reduce(0) { $0 + $1.duration }
     }
 
-    /// When the newest sample was enrolled, the closest thing to "last heard" for the naming UI.
-    var lastEnrolledAt: Date? {
-        samples.map(\.enrolledAt).max()
-    }
-
     /// The newest `maxSamples` by enrollment time, dropping the oldest (a no-op at or under the cap).
     private static func capped(_ samples: [VoiceSample]) -> [VoiceSample] {
         guard samples.count > maxSamples else { return samples }

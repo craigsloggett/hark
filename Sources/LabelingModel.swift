@@ -281,17 +281,10 @@ final class LabelingModel {
     extension LabelingModel {
         /// A model wired to a fixed transcript and voice set, for SwiftUI previews and tests
         /// without touching disk or `SpeakerStore`.
-        static func preview(
-            detail: SessionDetail,
-            voiceprints: [Voiceprint] = [],
-            usage: [String: Int] = [:],
-            suggestions: [DuplicateSuggestion] = []
-        ) -> LabelingModel {
+        static func preview(detail: SessionDetail, voiceprints: [Voiceprint] = []) -> LabelingModel {
             let model = LabelingModel()
             model.detail = detail
             model.voiceprintsByID = voiceprints.byID
-            model.voiceUsage = usage
-            model.duplicateSuggestions = suggestions
             return model
         }
     }
