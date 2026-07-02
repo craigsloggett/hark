@@ -1,33 +1,38 @@
 import SwiftUI
 
-/// The sidebar: the People manager, then past recordings newest first, titled by their custom name
-/// when one is set, otherwise by when they were recorded.
+/// The sidebar: past transcripts newest first, titled by their custom name when one is set,
+/// otherwise by when they were recorded.
 struct SessionListView: View {
     @Bindable var model: LabelingModel
     @State private var renamingURL: URL?
 
     var body: some View {
-        List(selection: $model.sidebarSelection) {
-            Section {
-                Label("People", systemImage: "person.2.wave.2")
-                    .tag(SidebarItem.voices)
-            }
-            Section("Recordings") {
+        List(selection: $model.selection) {
+            Section("Transcripts") {
                 ForEach(model.library.sessions) { session in
                     SessionRow(session: session, model: model, renamingURL: $renamingURL)
-                        .tag(SidebarItem.session(session.url))
+                        .tag(session.url)
                 }
                 if model.library.sessions.isEmpty {
-                    Text("No recordings yet")
-                        .foregroundStyle(.secondary)
+                    emptyHint
                 }
             }
         }
         .navigationTitle("Hark")
     }
+
+    private var emptyHint: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("No transcripts yet")
+                .foregroundStyle(.secondary)
+            Text("Record a meeting and it's transcribed right here on your Mac. Nothing leaves your device.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
 }
 
-/// One recording row: the title with date and tag captions, swapping to an inline rename field on
+/// One transcript row: the title with date and tag captions, swapping to an inline rename field on
 /// demand (Freeform-style: Enter or clicking away commits, Esc cancels, empty clears the name).
 private struct SessionRow: View {
     let session: SessionSummary
@@ -47,11 +52,13 @@ private struct SessionRow: View {
             } else {
                 Text(session.title)
                 if session.name != nil {
-                    caption(session.dateLabel)
+                    Text(session.dateLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             if !session.tags.isEmpty {
-                caption(session.tags.joined(separator: " · "))
+                TagChips(tags: session.tags)
             }
         }
         .contextMenu {
@@ -78,12 +85,6 @@ private struct SessionRow: View {
             }
     }
 
-    private func caption(_ text: String) -> some View {
-        Text(text)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-    }
-
     private func beginRenaming() {
         renamingURL = session.url
     }
@@ -92,5 +93,31 @@ private struct SessionRow: View {
         let name = draft
         renamingURL = nil
         Task { await model.renameSession(session.url, to: name) }
+    }
+}
+
+/// A transcript's tags as caption-sized tinted capsules, capped so a long tag list can't crowd the
+/// narrow sidebar row.
+private struct TagChips: View {
+    let tags: [String]
+
+    private static let visibleLimit = 3
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(tags.prefix(Self.visibleLimit), id: \.self) { tag in
+                Text(tag)
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .foregroundStyle(Color.tag(for: tag))
+                    .background(Color.tag(for: tag).opacity(0.16), in: Capsule())
+            }
+            if tags.count > Self.visibleLimit {
+                Text("+\(tags.count - Self.visibleLimit)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }

@@ -15,7 +15,7 @@ struct MenuBarContent: View {
             recorder.toggleRecording()
         }
 
-        Button("Transcribe Last Session") {
+        Button("Transcribe Last Recording") {
             recorder.transcribeLastSession()
         }
         .disabled(!canTranscribe)
@@ -29,7 +29,7 @@ struct MenuBarContent: View {
         }
         .disabled(lastTranscriptURL == nil)
 
-        Button("Reveal Last Session in Finder") {
+        Button("Reveal Last Recording in Finder") {
             if let session = recorder.lastSessionURL {
                 NSWorkspace.shared.activateFileViewerSelecting([session])
             }
@@ -38,7 +38,7 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Button("Browse Recordings…") {
+        Button("Browse Transcripts…") {
             openSessions()
         }
 

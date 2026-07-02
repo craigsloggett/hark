@@ -13,6 +13,15 @@ extension Color {
     /// A stable chip and dot color for a speaker, hashed from its identity key (voiceprint id or
     /// token) so the same voice keeps its color across a session.
     static func speaker(for key: String) -> Color {
+        hashed(key)
+    }
+
+    /// A stable tint for a session tag, so "Work" reads as the same color on every transcript.
+    static func tag(for name: String) -> Color {
+        hashed(name)
+    }
+
+    private static func hashed(_ key: String) -> Color {
         guard !key.isEmpty else { return speakerPalette[0] }
         var hash: UInt = 5381
         for byte in key.utf8 {

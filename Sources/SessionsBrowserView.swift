@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The recordings window: a session list, the transcript chat, and the People inspector. Its appear
+/// The transcripts window: the transcript list, the chat pane, and the People inspector. Its appear
 /// and disappear drive the app's Dock activation.
 struct SessionsBrowserView: View {
     @Environment(AudioRecorder.self) private var recorder
@@ -30,11 +30,11 @@ struct SessionsBrowserView: View {
         .task {
             model.library.reload()
             await model.refreshVoiceprints()
-            if model.sidebarSelection == nil {
-                model.sidebarSelection = model.library.sessions.first.map { .session($0.url) }
+            if model.selection == nil {
+                model.selection = model.library.sessions.first?.url
             }
         }
-        .task(id: model.sidebarSelection) {
+        .task(id: model.selection) {
             await model.loadSelected()
         }
         // A finished transcription adds a new session, so refresh the list when one lands.
@@ -57,38 +57,33 @@ struct SessionsBrowserView: View {
         }
     }
 
-    /// The right pane: the global voices manager, or the selected transcript with its People inspector.
-    @ViewBuilder
+    /// The right pane: the selected transcript with its People inspector.
     private var detailPane: some View {
-        if model.showsVoices {
-            VoicesManagerView(model: model)
-        } else {
-            TranscriptChatView(model: model)
-                .inspector(isPresented: $showsPeople) {
-                    PeopleInspectorView(model: model)
-                        .inspectorColumnWidth(min: 220, ideal: 260, max: 340)
-                }
-                .toolbar {
-                    ToolbarItem {
-                        Button {
-                            showsTags = true
-                        } label: {
-                            Label("Tags", systemImage: "tag")
-                        }
-                        .disabled(model.selection == nil)
-                        .popover(isPresented: $showsTags, arrowEdge: .bottom) {
-                            SessionTagsPopover(model: model)
-                        }
+        TranscriptChatView(model: model)
+            .inspector(isPresented: $showsPeople) {
+                PeopleInspectorView(model: model)
+                    .inspectorColumnWidth(min: 220, ideal: 260, max: 340)
+            }
+            .toolbar {
+                ToolbarItem {
+                    Button {
+                        showsTags = true
+                    } label: {
+                        Label("Tags", systemImage: "tag")
                     }
-                    ToolbarItem {
-                        Button {
-                            showsPeople.toggle()
-                        } label: {
-                            Label("People", systemImage: "person.2")
-                        }
+                    .disabled(model.selection == nil)
+                    .popover(isPresented: $showsTags, arrowEdge: .bottom) {
+                        SessionTagsPopover(model: model)
                     }
                 }
-        }
+                ToolbarItem {
+                    Button {
+                        showsPeople.toggle()
+                    } label: {
+                        Label("People", systemImage: "person.2")
+                    }
+                }
+            }
     }
 
     /// Drives the duplicate-voice confirmation from the model's pending enroll; dismissing cancels it.

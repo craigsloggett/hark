@@ -1,10 +1,15 @@
 import SwiftUI
 
-/// The People roster for the current transcript: who spoke, how much, and where else Hark has heard
-/// them. Renaming and forgetting live in the row's context menu. Selecting two speakers enables Merge,
-/// which fixes one person the diarizer split into two.
+/// The People inspector, in two scopes: who is in this transcript (with stats and merge), and
+/// everyone Hark knows across transcripts. Renaming and forgetting live in the rows' context menus.
 struct PeopleInspectorView: View {
+    private enum Scope {
+        case transcript
+        case everyone
+    }
+
     @Bindable var model: LabelingModel
+    @State private var scope: Scope = .transcript
     @State private var renamingID: String?
     @State private var renameDraft = ""
     @State private var forgettingID: String?
@@ -12,15 +17,46 @@ struct PeopleInspectorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("People")
-                    .font(.headline)
-                Spacer()
+            header
+            if scope == .transcript {
+                transcriptPeople
+            } else {
+                AllPeopleView(model: model)
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 12)
-            .padding(.bottom, 4)
+        }
+        .renameVoiceAlert(id: $renamingID, draft: $renameDraft) { id, name in
+            await model.renameVoice(id: id, to: name)
+        }
+        .forgetVoiceDialog(id: $forgettingID) { await model.forgetVoice(id: $0) }
+        .mergeVoicesDialog(isPresented: $confirmingMerge) { await model.mergeSelected() }
+    }
 
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("People")
+                .font(.headline)
+            Picker("Scope", selection: $scope) {
+                Text("This Transcript").tag(Scope.transcript)
+                Text("Everyone").tag(Scope.everyone)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
+    }
+
+    @ViewBuilder
+    private var transcriptPeople: some View {
+        if model.detail == nil {
+            Spacer()
+            Text("Select a transcript")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+        } else {
             List(model.rosterTokens, id: \.self, selection: $model.peopleSelection) { token in
                 PersonRow(token: token, model: model)
                     .selectionDisabled(token == Speaker.you.token)
@@ -41,11 +77,6 @@ struct PeopleInspectorView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
         }
-        .renameVoiceAlert(id: $renamingID, draft: $renameDraft) { id, name in
-            await model.renameVoice(id: id, to: name)
-        }
-        .forgetVoiceDialog(id: $forgettingID) { await model.forgetVoice(id: $0) }
-        .mergeVoicesDialog(isPresented: $confirmingMerge) { await model.mergeSelected() }
     }
 
     @ViewBuilder
@@ -90,7 +121,7 @@ private struct PersonRow: View {
         }
         let others = isYou ? 0 : model.otherRecordings(token: token)
         if others > 0 {
-            parts.append("in \(String(count: others, "other recording"))")
+            parts.append("in \(String(count: others, "other transcript"))")
         }
         return parts.joined(separator: " · ")
     }

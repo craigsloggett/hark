@@ -43,6 +43,18 @@ struct GeneralSettingsView: View {
                 Label("Start Hark Recording", systemImage: "record.circle")
                 Label("Stop Hark Recording & Transcribe", systemImage: "stop.circle")
             }
+
+            Section("Privacy") {
+                Label {
+                    Text(
+                        "Recording, transcription, and voice recognition all happen on this Mac. "
+                            + "Hark has no account, no cloud service, and nothing leaves your device."
+                    )
+                    .foregroundStyle(.secondary)
+                } icon: {
+                    Image(systemName: "hand.raised")
+                }
+            }
         }
         .formStyle(.grouped)
         .fixedSize(horizontal: false, vertical: true)

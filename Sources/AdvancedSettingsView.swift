@@ -62,7 +62,7 @@ struct AdvancedSettingsView: View {
                 sliderRow(
                     "Matching a known voice",
                     value: $speakerMatchThreshold, range: 0.1 ... 1.5, step: 0.05,
-                    help: "Lower is stricter about matching this session's speakers to voices Hark has "
+                    help: "Lower is stricter about matching this recording's speakers to voices Hark has "
                         + "saved before, so it reuses a saved voice less readily."
                 )
                 sliderRow(
@@ -130,7 +130,7 @@ struct AdvancedSettingsView: View {
                     "Limit number of speakers",
                     value: $maxSpeakers, range: 0 ... 10,
                     valueText: { $0 == 0 ? "Auto" : "\($0)" },
-                    help: "Cap how many speakers Hark may find in a session; it tends to find close "
+                    help: "Cap how many speakers Hark may find in a recording; it tends to find close "
                         + "to this many. Auto lets it decide."
                 )
             }

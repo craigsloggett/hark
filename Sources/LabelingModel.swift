@@ -11,12 +11,6 @@ struct TurnGroup: Identifiable {
     var segments: [TranscriptSegment]
 }
 
-/// The recordings sidebar's selection: the global voices manager or one recording.
-enum SidebarItem: Hashable {
-    case voices
-    case session(URL)
-}
-
 /// The state hub for the labeling window: the session list, the loaded transcript and its editable
 /// speaker overlay, and a snapshot of the voiceprint database. Every edit (in `LabelingModel+Editing`)
 /// pushes an undo snapshot, mutates the overlay and/or `SpeakerStore`, then re-renders `transcript.txt`.
@@ -25,9 +19,10 @@ enum SidebarItem: Hashable {
 final class LabelingModel {
     let library = SessionLibrary()
     private let logger = Logger(category: "LabelingModel")
-    var sidebarSelection: SidebarItem?
+    /// The transcript selected in the sidebar.
+    var selection: URL?
     var peopleSelection: Set<String> = []
-    /// The voices selected in the global manager (by voiceprint id), for merging across recordings.
+    /// The people selected in the inspector's Everyone tab (by voiceprint id), for merging.
     var voicesSelection: Set<String> = []
     private(set) var detail: SessionDetail?
     private(set) var voiceprintsByID: [String: Voiceprint] = [:]
@@ -36,15 +31,6 @@ final class LabelingModel {
     /// A duplicate a deliberate enroll would create: set instead of enrolling, so the UI can offer to
     /// reuse the existing voice. `nil` when no enroll is awaiting that choice.
     var pendingEnrollment: PendingEnrollment?
-
-    var selection: URL? {
-        if case let .session(url) = sidebarSelection { return url }
-        return nil
-    }
-
-    var showsVoices: Bool {
-        sidebarSelection == .voices
-    }
 
     // MARK: Undo
 
@@ -130,7 +116,7 @@ final class LabelingModel {
     }
 
     var currentTitle: String {
-        currentSummary?.title ?? "Recording"
+        currentSummary?.title ?? "Transcript"
     }
 
     /// The recording date, shown under the titlebar name only when a custom name displaces it.

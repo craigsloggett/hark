@@ -77,7 +77,7 @@ struct SpeakerPopover: View {
         }
         let others = model.otherRecordings(token: token)
         guard others > 0 else { return base }
-        return "\(base) · in \(String(count: others, "other recording"))"
+        return "\(base) · in \(String(count: others, "other transcript"))"
     }
 
     private func savedVoiceActions(tentative: Bool) -> some View {

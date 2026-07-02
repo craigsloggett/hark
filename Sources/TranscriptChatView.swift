@@ -7,7 +7,7 @@ struct TranscriptChatView: View {
 
     var body: some View {
         if model.detail == nil {
-            ContentUnavailableView("Select a recording", systemImage: "text.bubble")
+            ContentUnavailableView("Select a transcript", systemImage: "text.bubble")
                 .navigationTitle("Transcript")
         } else {
             ScrollView {

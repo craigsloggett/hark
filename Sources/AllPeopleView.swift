@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Everyone Hark knows across all recordings, with cross-session rename, forget, and merge. Reached
-/// from the recordings sidebar; its edits share the window's undo.
-struct VoicesManagerView: View {
+/// The inspector's Everyone scope: all the people Hark knows across transcripts, with
+/// cross-transcript rename, forget, and merge.
+struct AllPeopleView: View {
     @Bindable var model: LabelingModel
     @State private var renamingID: String?
     @State private var renameDraft = ""
@@ -10,7 +10,7 @@ struct VoicesManagerView: View {
     @State private var confirmingMerge = false
 
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
             if model.voices.isEmpty {
                 ContentUnavailableView(
                     "No people yet",
@@ -18,32 +18,19 @@ struct VoicesManagerView: View {
                     description: Text("Name a speaker in a transcript and they'll appear here.")
                 )
             } else {
-                content
+                List(model.voices, selection: $model.voicesSelection) { voice in
+                    KnownPersonRow(voice: voice)
+                        .contextMenu { rowMenu(voice) }
+                }
+                Divider()
             }
+            footer
         }
-        .navigationTitle("People")
-        .navigationSubtitle(subtitle)
         .renameVoiceAlert(id: $renamingID, draft: $renameDraft) { id, name in
             await model.renameVoice(id: id, to: name)
         }
         .forgetVoiceDialog(id: $forgettingID) { await model.forgetVoice(id: $0) }
         .mergeVoicesDialog(isPresented: $confirmingMerge) { await model.mergeSelectedVoices() }
-    }
-
-    private var subtitle: String {
-        // "person" pluralizes irregularly, so the naive `String(count:)` helper doesn't apply.
-        model.voices.count == 1 ? "1 person" : "\(model.voices.count) people"
-    }
-
-    private var content: some View {
-        VStack(spacing: 0) {
-            List(model.voices, selection: $model.voicesSelection) { voice in
-                VoiceRow(voice: voice)
-                    .contextMenu { rowMenu(voice) }
-            }
-            Divider()
-            mergeFooter
-        }
     }
 
     @ViewBuilder
@@ -55,11 +42,16 @@ struct VoicesManagerView: View {
         Button("Forget…", role: .destructive) { forgettingID = voice.id }
     }
 
-    private var mergeFooter: some View {
+    private var footer: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Button("Merge Selected") { confirmingMerge = true }
-                .disabled(!model.canMergeVoices)
-            Text("Same person listed twice? Select both and merge.")
+            if !model.voices.isEmpty {
+                Button("Merge Selected") { confirmingMerge = true }
+                    .disabled(!model.canMergeVoices)
+                Text("Same person listed twice? Select both and merge.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Text("Voices are recognized on this Mac and never leave it.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -68,7 +60,7 @@ struct VoicesManagerView: View {
     }
 }
 
-private struct VoiceRow: View {
+private struct KnownPersonRow: View {
     let voice: VoiceSummary
 
     var body: some View {
@@ -79,14 +71,10 @@ private struct VoiceRow: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(voice.displayName)
                     .foregroundStyle(voice.isNamed ? .primary : .secondary)
-                Text(subtitle)
+                Text("In \(String(count: voice.recordingCount, "transcript"))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
-    }
-
-    private var subtitle: String {
-        "In \(String(count: voice.recordingCount, "recording"))"
     }
 }

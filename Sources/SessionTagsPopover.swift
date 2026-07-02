@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The transcript toolbar's tag editor: add tags with the field, remove them per row. Tags label the
-/// recording in the sidebar; they never touch the transcript itself.
+/// transcript in the sidebar; they never touch its text.
 struct SessionTagsPopover: View {
     let model: LabelingModel
     @State private var draft = ""
@@ -46,8 +46,9 @@ struct SessionTagsPopover: View {
 
     private func tagRow(_ tag: String) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: "tag")
-                .foregroundStyle(.secondary)
+            Circle()
+                .fill(Color.tag(for: tag))
+                .frame(width: 8, height: 8)
             Text(tag)
             Spacer()
             Button {
