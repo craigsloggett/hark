@@ -1,4 +1,3 @@
-import FluidAudio
 import Foundation
 @testable import hark
 import Testing
@@ -16,15 +15,6 @@ final class SpeakerStoreTests {
 
     deinit {
         try? FileManager.default.removeItem(at: directory)
-    }
-
-    /// A 256-d embedding with `leading` values at the front and zeros elsewhere.
-    private func embedding(_ leading: [Float]) -> [Float] {
-        var values = [Float](repeating: 0, count: SpeakerManager.embeddingSize)
-        for (index, value) in leading.enumerated() {
-            values[index] = value
-        }
-        return values
     }
 
     @Test func enrollsThenMatchesAcrossStores() async throws {
@@ -104,7 +94,7 @@ final class SpeakerStoreTests {
         let voiceprints = try JSONDecoder().decode([Voiceprint].self, from: Data(contentsOf: url))
         #expect(voiceprints.count == 1)
         #expect(voiceprints.first?.samples.count == 1)
-        #expect(voiceprints.first?.samples.first?.embedding.count == SpeakerManager.embeddingSize)
+        #expect(voiceprints.first?.samples.first?.embedding == embedding([1]))
         #expect(voiceprints.first?.name == nil)
     }
 
@@ -164,13 +154,6 @@ final class SpeakerStoreTests {
         #expect(voiceprint.samples.count == 1)
         let all = try await store.voiceprints()
         #expect(all.map(\.id) == [voiceprint.id])
-    }
-
-    @Test func enrollRejectsWrongSizedEmbedding() async {
-        let store = SpeakerStore(directory: directory)
-        await #expect(throws: SpeakerStoreError.self) {
-            _ = try await store.enroll(embedding: [1, 2, 3], duration: 3, name: nil)
-        }
     }
 
     @Test func addSampleGrowsTheVoiceprint() async throws {

@@ -117,8 +117,11 @@ struct TranscriptionService {
         for turn in diarization.turns {
             durations[turn.speakerID, default: 0] += Float(turn.end - turn.start)
         }
+        // The boundary where the diarizer's raw vectors become validated embeddings; a wrong-sized
+        // vector drops here rather than being re-checked downstream.
+        let embeddings = diarization.embeddings.compactMapValues { Embedding($0) }
         let clusters = timeline.speakersByClusterID.compactMap { clusterID, _ -> SpeakerCluster? in
-            guard let embedding = diarization.embeddings[clusterID] else { return nil }
+            guard let embedding = embeddings[clusterID] else { return nil }
             return SpeakerCluster(id: clusterID, embedding: embedding, duration: durations[clusterID] ?? 0)
         }
         guard !clusters.isEmpty else { return ([:], [:]) }
@@ -131,7 +134,7 @@ struct TranscriptionService {
             overlay[speaker.token] = SessionSpeaker(
                 voiceprintID: identity?.id,
                 matchDistance: identity?.distance,
-                embedding: diarization.embeddings[clusterID],
+                embedding: embeddings[clusterID],
                 duration: durations[clusterID]
             )
             displayNames[speaker.token] = identity?.name

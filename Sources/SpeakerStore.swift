@@ -5,7 +5,7 @@ import OSLog
 /// One session's diarized speaker, holding the diarizer's cluster id, its mean embedding, and speech duration.
 struct SpeakerCluster {
     let id: String
-    let embedding: [Float]
+    let embedding: Embedding
     let duration: Float
 }
 
@@ -17,7 +17,6 @@ struct VoicePair {
 }
 
 enum SpeakerStoreError: Error {
-    case invalidEmbedding
     case unknownVoiceprint
 }
 
@@ -111,9 +110,7 @@ actor SpeakerStore {
 
     /// Enrolls a brand-new voiceprint from a diarized embedding, e.g. when the labeling window adds a
     /// new voice. A deliberate action, so it skips the automatic enrollment's duration floor.
-    /// - Throws: `SpeakerStoreError.invalidEmbedding` when the embedding is the wrong size.
-    func enroll(embedding: [Float], duration: Float, name: String?) throws -> Voiceprint {
-        guard embedding.count == SpeakerManager.embeddingSize else { throw SpeakerStoreError.invalidEmbedding }
+    func enroll(embedding: Embedding, duration: Float, name: String?) throws -> Voiceprint {
         var voiceprints = try load()
         let sample = VoiceSample(id: UUID(), embedding: embedding, duration: duration, enrolledAt: Date())
         let voiceprint = Voiceprint(id: UUID().uuidString, name: name?.normalizedName, samples: [sample])
@@ -124,9 +121,8 @@ actor SpeakerStore {
 
     /// Adds an enrollment sample to an existing voiceprint (following merge redirects to the survivor),
     /// e.g. when the user confirms "this is someone I know", so the identity learns the new session's voice.
-    /// - Throws: `SpeakerStoreError.invalidEmbedding` or `.unknownVoiceprint`.
-    func addSample(toVoiceprint id: String, embedding: [Float], duration: Float) throws {
-        guard embedding.count == SpeakerManager.embeddingSize else { throw SpeakerStoreError.invalidEmbedding }
+    /// - Throws: `SpeakerStoreError.unknownVoiceprint`.
+    func addSample(toVoiceprint id: String, embedding: Embedding, duration: Float) throws {
         var voiceprints = try load()
         guard let index = survivorIndex(of: id, in: voiceprints) else {
             throw SpeakerStoreError.unknownVoiceprint
@@ -165,18 +161,14 @@ actor SpeakerStore {
 
     /// The nearest named voiceprint to an embedding and its cosine distance, for warning before a
     /// deliberate enroll duplicates a voice the user already saved. Considers only named survivors, so
-    /// an unnamed auto-enrollment is never offered as the match. `nil` when there is no named voice or
-    /// the embedding is the wrong size.
-    func nearestNamed(to embedding: [Float]) throws -> (voiceprint: Voiceprint, distance: Float)? {
-        guard embedding.count == SpeakerManager.embeddingSize else { return nil }
-        let named = try load().filter {
-            !$0.isTombstone && $0.name != nil && $0.centroid.count == SpeakerManager.embeddingSize
-        }
+    /// an unnamed auto-enrollment is never offered as the match. `nil` when there is no named voice.
+    func nearestNamed(to embedding: Embedding) throws -> (voiceprint: Voiceprint, distance: Float)? {
+        let named = try load().filter { !$0.isTombstone && $0.name != nil && $0.centroid != nil }
         guard !named.isEmpty else { return nil }
         // Seed permissively (threshold 2 spans the cosine-distance range) so the query ranks every
         // named voice; matches are nearest-first, so `.first` is the closest.
         let snapshot = matcher(seededWith: named, threshold: 2)
-        guard let match = snapshot.findMatchingSpeakers(with: embedding, speakerThreshold: 2).first,
+        guard let match = snapshot.findMatchingSpeakers(with: embedding.values, speakerThreshold: 2).first,
               let voiceprint = named.first(where: { $0.id == match.id })
         else { return nil }
         return (voiceprint, match.distance)
@@ -185,16 +177,15 @@ actor SpeakerStore {
     /// Unordered pairs of surviving voiceprints whose centroids are within `distance`, nearest first,
     /// for surfacing likely duplicate voices to merge. Each pair appears once; self-pairs are excluded.
     func duplicatePairs(within distance: Float) throws -> [VoicePair] {
-        let survivors = try load().filter {
-            !$0.isTombstone && $0.centroid.count == SpeakerManager.embeddingSize
-        }
+        let survivors = try load().filter { !$0.isTombstone && $0.centroid != nil }
         guard survivors.count > 1 else { return [] }
         let snapshot = matcher(seededWith: survivors, threshold: 2)
         let lookup = survivors.byID
         var pairs: [VoicePair] = []
         var seen: Set<String> = []
         for voiceprint in survivors {
-            let matches = snapshot.findMatchingSpeakers(with: voiceprint.centroid, speakerThreshold: distance)
+            guard let centroid = voiceprint.centroid else { continue }
+            let matches = snapshot.findMatchingSpeakers(with: centroid.values, speakerThreshold: distance)
             for match in matches where match.id != voiceprint.id {
                 let key = [voiceprint.id, match.id].sorted().joined(separator: "|")
                 guard seen.insert(key).inserted, let other = lookup[match.id] else { continue }
@@ -231,8 +222,7 @@ actor SpeakerStore {
         for cluster in clusters.sorted(by: {
             $0.duration != $1.duration ? $0.duration > $1.duration : $0.id < $1.id
         }) {
-            guard cluster.embedding.count == SpeakerManager.embeddingSize else { continue }
-            let matches = snapshot.findMatchingSpeakers(with: cluster.embedding, speakerThreshold: threshold)
+            let matches = snapshot.findMatchingSpeakers(with: cluster.embedding.values, speakerThreshold: threshold)
             // matches is nearest-first so the first unclaimed match is the closest identity still
             // available to this cluster.
             if let match = matches.first(where: { !claimed.contains($0.id) }) {
@@ -259,10 +249,9 @@ actor SpeakerStore {
     private func matcher(seededWith known: [Voiceprint], threshold: Float) -> SpeakerManager {
         var manager = SpeakerManager(speakerThreshold: threshold)
         for voiceprint in known where !voiceprint.isTombstone {
-            let centroid = voiceprint.centroid
-            guard centroid.count == SpeakerManager.embeddingSize else { continue }
+            guard let centroid = voiceprint.centroid else { continue }
             manager.upsertSpeaker(
-                id: voiceprint.id, currentEmbedding: centroid, duration: voiceprint.totalDuration
+                id: voiceprint.id, currentEmbedding: centroid.values, duration: voiceprint.totalDuration
             )
         }
         return manager
@@ -299,10 +288,9 @@ actor SpeakerStore {
     private func writeDebugDump(_ clusters: [SpeakerCluster], against snapshot: SpeakerManager, threshold: Float) {
         guard ProcessInfo.processInfo.flag(forKey: "HARK_SPEAKER_DEBUG") else { return }
         let dump = clusters
-            .filter { $0.embedding.count == SpeakerManager.embeddingSize }
             .map { cluster -> DebugMatch in
                 // 2 is the maximum cosine distance, so this ranks every known voiceprint (.first is nearest).
-                let nearest = snapshot.findMatchingSpeakers(with: cluster.embedding, speakerThreshold: 2).first
+                let nearest = snapshot.findMatchingSpeakers(with: cluster.embedding.values, speakerThreshold: 2).first
                 return DebugMatch(
                     cluster: cluster.id,
                     duration: Double(cluster.duration),

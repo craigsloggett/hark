@@ -58,19 +58,19 @@ struct ScreenshotRenderer {
     /// A three-speaker transcript covering every chip state: a saved voice (Priya), an unidentified
     /// speaker, and a transcript-only label (Guest), plus a second saved voice to populate the picker.
     private static func populatedModel() -> LabelingModel {
-        let embedding: [Float] = [0.1, 0.2, 0.3]
+        let voice = embedding([0.1, 0.2, 0.3])
         let enrolledAt = Date(timeIntervalSinceReferenceDate: 0)
         let priya = Voiceprint(
             id: "vp-priya", name: "Priya",
-            samples: [VoiceSample(id: UUID(), embedding: embedding, duration: 30, enrolledAt: enrolledAt)]
+            samples: [VoiceSample(id: UUID(), embedding: voice, duration: 30, enrolledAt: enrolledAt)]
         )
         let marcus = Voiceprint(
             id: "vp-marcus", name: "Marcus",
-            samples: [VoiceSample(id: UUID(), embedding: embedding, duration: 20, enrolledAt: enrolledAt)]
+            samples: [VoiceSample(id: UUID(), embedding: voice, duration: 20, enrolledAt: enrolledAt)]
         )
         let recognized = Voiceprint(
             id: "vp-recognized", name: nil,
-            samples: [VoiceSample(id: UUID(), embedding: embedding, duration: 20, enrolledAt: enrolledAt)]
+            samples: [VoiceSample(id: UUID(), embedding: voice, duration: 20, enrolledAt: enrolledAt)]
         )
         let segments = [
             TranscriptSegment(start: 0, end: 3, speaker: .remote(1), text: "Morning! Did you see the deck?"),
@@ -82,14 +82,14 @@ struct ScreenshotRenderer {
         let overlay: [String: SessionSpeaker] = [
             // A borderline auto-match (distance past the 0.4 confident cutoff) reads as "Likely Priya".
             "speaker1": SessionSpeaker(
-                voiceprintID: "vp-priya", matchDistance: 0.55, embedding: embedding, duration: 30
+                voiceprintID: "vp-priya", matchDistance: 0.55, embedding: voice, duration: 30
             ),
-            "speaker2": SessionSpeaker(embedding: embedding, duration: 18),
-            "speaker3": SessionSpeaker(nameOverride: "Guest", embedding: embedding, duration: 12),
+            "speaker2": SessionSpeaker(embedding: voice, duration: 18),
+            "speaker3": SessionSpeaker(nameOverride: "Guest", embedding: voice, duration: 12),
             // A legacy speaker with no saved voice sample: naming can only label the transcript.
             "speaker4": SessionSpeaker(duration: 8),
             // Recognized (auto-enrolled) but never named: the popover names the voice in place.
-            "speaker5": SessionSpeaker(voiceprintID: "vp-recognized", embedding: embedding, duration: 20),
+            "speaker5": SessionSpeaker(voiceprintID: "vp-recognized", embedding: voice, duration: 20),
         ]
         let detail = SessionDetail(
             url: FileManager.default.temporaryDirectory.appendingPathComponent("hark-preview"),

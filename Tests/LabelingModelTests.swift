@@ -11,7 +11,7 @@ struct LabelingModelTests {
         let detail = SessionDetail(
             url: FileManager.default.temporaryDirectory.appendingPathComponent("hark-test"),
             segments: [],
-            overlay: ["speaker1": SessionSpeaker(embedding: [1], duration: 5)]
+            overlay: ["speaker1": SessionSpeaker(embedding: embedding([1]), duration: 5)]
         )
         let dan = Voiceprint(id: "vp-dan", name: "Dan", samples: [])
         let model = LabelingModel.preview(detail: detail, voiceprints: [dan])

@@ -9,7 +9,7 @@ struct SessionSpeaker: Equatable {
     /// A transcript-only label, preferred over the voiceprint's name and never written back to it.
     var nameOverride: String?
     /// The diarized mean embedding, persisted so a past session can enroll or split a new voiceprint.
-    var embedding: [Float]?
+    var embedding: Embedding?
     /// This speaker's diarized speech, the duration of the enrollment sample built from `embedding`.
     var duration: Float?
     /// The cosine distance of the auto-match that bound `voiceprintID`, so a borderline match can be
@@ -24,7 +24,7 @@ struct SessionSpeaker: Equatable {
         nameOverride: String? = nil,
         matchDistance: Float? = nil,
         confirmed: Bool = false,
-        embedding: [Float]? = nil,
+        embedding: Embedding? = nil,
         duration: Float? = nil
     ) {
         self.voiceprintID = voiceprintID
@@ -58,7 +58,8 @@ extension SessionSpeaker: Codable {
         nameOverride = try container.decodeIfPresent(String.self, forKey: .nameOverride)
         matchDistance = try container.decodeIfPresent(Float.self, forKey: .matchDistance)
         confirmed = try container.decodeIfPresent(Bool.self, forKey: .confirmed) ?? false
-        embedding = try container.decodeIfPresent([Float].self, forKey: .embedding)
+        // A stored embedding of the wrong size degrades to none rather than failing the whole overlay.
+        embedding = try container.decodeIfPresent([Float].self, forKey: .embedding).flatMap { Embedding($0) }
         duration = try container.decodeIfPresent(Float.self, forKey: .duration)
         // Legacy `name` was a snapshot of the voiceprint's name; dropped so the live voiceprint governs.
     }

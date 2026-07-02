@@ -16,7 +16,7 @@ struct SessionSpeakerTests {
     @Test func roundTripsNewShape() throws {
         let speaker = SessionSpeaker(
             voiceprintID: "v1", nameOverride: "Boss", matchDistance: 0.5, confirmed: true,
-            embedding: [0.5, 0.25], duration: 3
+            embedding: embedding([0.5, 0.25]), duration: 3
         )
         let data = try JSONEncoder().encode(speaker)
         #expect(try JSONDecoder().decode(SessionSpeaker.self, from: data) == speaker)

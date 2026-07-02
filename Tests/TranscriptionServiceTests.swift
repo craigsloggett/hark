@@ -37,7 +37,7 @@ struct TranscriptionServiceTests {
         try [TranscriptSegment(start: 0, end: 1, speaker: .remote(1), text: "Hi")]
             .writeJSON(to: session.transcriptJSON)
         try session.writeSpeakers(["speaker1": SessionSpeaker(voiceprintID: "v1")])
-        let sample = VoiceSample(id: UUID(), embedding: [1], duration: 5, enrolledAt: Date())
+        let sample = VoiceSample(id: UUID(), embedding: embedding([1]), duration: 5, enrolledAt: Date())
         let voiceprint = Voiceprint(id: "v1", name: "Bob", samples: [sample])
 
         try TranscriptionService.rerenderTranscript(at: session.url, voiceprints: [voiceprint])
@@ -56,7 +56,9 @@ struct TranscriptionServiceTests {
         defer { try? FileManager.default.removeItem(at: session.url) }
 
         let overlay = [
-            "speaker1": SessionSpeaker(voiceprintID: "v1", nameOverride: "Alice", embedding: [0.5, 0.25], duration: 4),
+            "speaker1": SessionSpeaker(
+                voiceprintID: "v1", nameOverride: "Alice", embedding: embedding([0.5, 0.25]), duration: 4
+            ),
         ]
         try session.writeSpeakers(overlay)
         #expect(try session.loadSpeakers() == overlay)

@@ -4,7 +4,7 @@ import Foundation
 /// capture time. `id` addresses the sample stably across sessions.
 struct VoiceSample: Codable, Equatable, Identifiable {
     let id: UUID
-    let embedding: [Float]
+    let embedding: Embedding
     let duration: Float
     let enrolledAt: Date
 }
@@ -37,24 +37,24 @@ struct Voiceprint: Codable, Equatable {
         redirectID != nil
     }
 
-    /// The samples' duration-weighted mean embedding, the vector matched against. A single-sample
-    /// print returns that embedding unchanged.
-    var centroid: [Float] {
-        guard let first = samples.first else { return [] }
+    /// The samples' duration-weighted mean embedding, the vector matched against; `nil` for a
+    /// sampleless (tombstoned) voiceprint. A single-sample print returns that embedding unchanged.
+    var centroid: Embedding? {
+        guard let first = samples.first else { return nil }
         guard samples.count > 1 else { return first.embedding }
-        var weighted = [Float](repeating: 0, count: first.embedding.count)
+        var weighted = [Float](repeating: 0, count: first.embedding.values.count)
         var weight: Float = 0
-        for sample in samples where sample.embedding.count == weighted.count {
+        for sample in samples {
             weight += sample.duration
             for index in weighted.indices {
-                weighted[index] += sample.embedding[index] * sample.duration
+                weighted[index] += sample.embedding.values[index] * sample.duration
             }
         }
         guard weight > 0 else { return first.embedding }
         for index in weighted.indices {
             weighted[index] /= weight
         }
-        return weighted
+        return Embedding(weighted)
     }
 
     /// Total enrolled speech across the samples, seeded into the matcher as the speaker's duration.
