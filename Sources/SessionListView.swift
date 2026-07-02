@@ -72,7 +72,9 @@ private struct SessionRow: View {
             }
             .onAppear {
                 draft = session.name ?? ""
-                isEditing = true
+                // Focusing during the insertion layout pass trips AppKit's layout-recursion check;
+                // defer one turn so the field takes focus after layout settles.
+                Task { isEditing = true }
             }
     }
 
