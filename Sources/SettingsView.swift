@@ -14,7 +14,11 @@ struct SettingsView: View {
             }
 
             Tab("Advanced", systemImage: "slider.horizontal.3") {
-                AdvancedSettingsView()
+                // Size the pane to the General tab's intrinsic height so switching tabs never
+                // resizes the window; the Advanced form scrolls within that height.
+                GeneralSettingsView()
+                    .hidden()
+                    .overlay { AdvancedSettingsView() }
             }
         }
         // Pin the width and let the tabs set the height so `.windowResizability(.contentSize)` can

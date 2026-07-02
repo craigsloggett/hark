@@ -174,7 +174,6 @@ struct AdvancedSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(height: 540)
     }
 
     // MARK: Rows

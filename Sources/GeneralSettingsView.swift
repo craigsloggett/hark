@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// General settings for driving Hark with a global keyboard shortcut.
+/// General settings covering Hark's privacy posture and the global keyboard shortcut.
 struct GeneralSettingsView: View {
     var body: some View {
         Form {
@@ -20,13 +20,16 @@ struct GeneralSettingsView: View {
                 }
             }
 
-            Section {
-                Text(
-                    "Hark works with a keyboard shortcut you choose. You set it up in the "
-                        + "Shortcuts app, which also lets you start Hark from Spotlight or by "
-                        + "asking Siri."
-                )
-                .foregroundStyle(.secondary)
+            Section("Privacy") {
+                Label {
+                    Text(
+                        "Recording, transcription, and voice recognition all happen on this Mac. "
+                            + "Hark has no account, no cloud service, and nothing leaves your device."
+                    )
+                    .foregroundStyle(.secondary)
+                } icon: {
+                    Image(systemName: "hand.raised")
+                }
             }
 
             Section("Set Up a Keyboard Shortcut") {
@@ -42,18 +45,6 @@ struct GeneralSettingsView: View {
                 Label("Toggle Hark Recording", systemImage: "record.circle")
                 Label("Start Hark Recording", systemImage: "record.circle")
                 Label("Stop Hark Recording & Transcribe", systemImage: "stop.circle")
-            }
-
-            Section("Privacy") {
-                Label {
-                    Text(
-                        "Recording, transcription, and voice recognition all happen on this Mac. "
-                            + "Hark has no account, no cloud service, and nothing leaves your device."
-                    )
-                    .foregroundStyle(.secondary)
-                } icon: {
-                    Image(systemName: "hand.raised")
-                }
             }
         }
         .formStyle(.grouped)
