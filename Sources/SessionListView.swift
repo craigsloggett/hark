@@ -64,7 +64,10 @@ private struct SessionRow: View {
         .contextMenu {
             Button("Rename") { beginRenaming() }
         }
-        .onTapGesture(count: 2) { beginRenaming() }
+        // An exclusive double-tap gesture holds the first click hostage while it waits for a second,
+        // so clicking the label never reaches row selection; simultaneous recognition lets the click
+        // select immediately while a real double-click still starts the rename.
+        .simultaneousGesture(TapGesture(count: 2).onEnded { beginRenaming() })
     }
 
     private var renameField: some View {
