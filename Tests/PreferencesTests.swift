@@ -24,6 +24,9 @@ final class PreferencesTests {
         #expect(defaults.double(forKey: Preferences.Key.diarizationClusteringThreshold) == 0.75)
         #expect(defaults.double(forKey: Preferences.Key.diarizationMinSegmentDuration) == 2.0)
         #expect(defaults.double(forKey: Preferences.Key.speakerMatchThreshold) == 0.65)
+        #expect(defaults.double(forKey: Preferences.Key.speakerConfidentMatchThreshold) == 0.4)
+        // The confident cutoff must sit inside the match band, else no match ever reads as "Likely".
+        #expect(Preferences.Default.speakerConfidentMatchThreshold < Preferences.Default.speakerMatchThreshold)
         #expect(defaults.double(forKey: Preferences.Key.speakerMinEnrollmentDuration) == 1.0)
         #expect(defaults.double(forKey: Preferences.Key.utteranceGap) == 0.4)
         #expect(defaults.integer(forKey: Preferences.Key.voiceprintMaxSamples) == 5)
@@ -43,6 +46,8 @@ final class PreferencesTests {
             == ASRConfig().dualDecodeArbitration)
         #expect(defaults.integer(forKey: Preferences.Key.asrParallelChunkConcurrency)
             == ASRConfig().parallelChunkConcurrency)
+        #expect(!defaults.bool(forKey: Preferences.Key.menuBarOnly))
+        #expect(defaults.bool(forKey: Preferences.Key.showMenuBarIcon))
     }
 
     @Test func resolvedFallsBackToDefaultWhenUnset() {

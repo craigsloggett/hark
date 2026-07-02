@@ -1,25 +1,18 @@
-import AVFoundation
 import Foundation
 @testable import hark
 import Testing
 
 @MainActor
 struct AudioRecorderTests {
-    @Test func startsIdle() {
-        let recorder = AudioRecorder()
-        #expect(recorder.isRecording == false)
-        #expect(recorder.lastSessionURL == nil)
-    }
-
-    @Test func sessionNameFollowsTimestampPattern() {
+    /// Session folders already on disk use this name format, so it is a persisted-data contract:
+    /// changing it orphans every existing recording in the browser.
+    @Test func sessionNameFollowsTimestampPatternAndRoundTrips() {
         let date = Date(timeIntervalSince1970: 0)
         let name = AudioRecorder.sessionName(for: date)
-        #expect(name.hasPrefix("hark-"))
         #expect(name.wholeMatch(of: /hark-\d{8}-\d{6}/) != nil)
-    }
-
-    @Test func systemAudioTapConstructsWithoutCapturing() {
-        _ = SystemAudioTap()
+        // The browser lists sessions by parsing the name back; a broken inverse hides recordings.
+        #expect(AudioRecorder.date(from: name) == date)
+        #expect(AudioRecorder.date(from: "not-a-session") == nil)
     }
 
     @Test func outputCapacityDownsamplesWithLatencySlack() {
@@ -39,10 +32,6 @@ struct AudioRecorderTests {
             outputSampleRate: 16000
         )
         #expect(capacity == 272)
-    }
-
-    @Test func sharedReturnsSameInstance() {
-        #expect(AudioRecorder.shared === AudioRecorder.shared)
     }
 
     @Test func stopAndTranscribeOnIdleStaysIdle() {

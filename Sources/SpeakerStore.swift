@@ -5,74 +5,12 @@ import OSLog
 /// One session's diarized speaker, holding the diarizer's cluster id, its mean embedding, and speech duration.
 struct SpeakerCluster {
     let id: String
-    let embedding: [Float]
+    let embedding: Embedding
     let duration: Float
 }
 
-/// One enrollment sample for a voiceprint, a diarized mean embedding with its speech duration and
-/// capture time. `id` addresses the sample stably across sessions.
-struct VoiceSample: Codable, Equatable, Identifiable {
-    let id: UUID
-    let embedding: [Float]
-    let duration: Float
-    let enrolledAt: Date
-}
-
-/// A speaker's cross-session identity, backed by a capped list of enrollment samples. The vector
-/// matched against is the samples' duration-weighted `centroid`, derived when seeding the matcher
-/// rather than stored. Persisted as `{id, name, samples}`.
-struct Voiceprint: Codable, Equatable {
-    let id: String
-    let name: String?
-    let samples: [VoiceSample]
-
-    /// Cap on samples per voiceprint, from `Preferences`. The initializer keeps the newest this many.
-    static var maxSamples: Int {
-        Preferences.voiceprintMaxSamples
-    }
-
-    init(id: String, name: String?, samples: [VoiceSample]) {
-        self.id = id
-        self.name = name
-        self.samples = Self.capped(samples)
-    }
-
-    /// The samples' duration-weighted mean embedding, the vector matched against. A single-sample
-    /// print returns that embedding unchanged.
-    var centroid: [Float] {
-        guard let first = samples.first else { return [] }
-        guard samples.count > 1 else { return first.embedding }
-        var weighted = [Float](repeating: 0, count: first.embedding.count)
-        var weight: Float = 0
-        for sample in samples where sample.embedding.count == weighted.count {
-            weight += sample.duration
-            for index in weighted.indices {
-                weighted[index] += sample.embedding[index] * sample.duration
-            }
-        }
-        guard weight > 0 else { return first.embedding }
-        for index in weighted.indices {
-            weighted[index] /= weight
-        }
-        return weighted
-    }
-
-    /// Total enrolled speech across the samples, seeded into the matcher as the speaker's duration.
-    var totalDuration: Float {
-        samples.reduce(0) { $0 + $1.duration }
-    }
-
-    /// The newest `maxSamples` by enrollment time, dropping the oldest (a no-op at or under the cap).
-    private static func capped(_ samples: [VoiceSample]) -> [VoiceSample] {
-        guard samples.count > maxSamples else { return samples }
-        return Array(samples.sorted { $0.enrolledAt < $1.enrolledAt }.suffix(maxSamples))
-    }
-}
-
-/// A session speaker's resolved identity (`name` is `nil` until the voiceprint is named).
-struct SpeakerIdentity: Codable, Equatable {
-    let id: String
-    let name: String?
+enum SpeakerStoreError: Error {
+    case unknownVoiceprint
 }
 
 /// Matches each session's diarized speakers against a persisted voiceprint database so a recurring
@@ -80,24 +18,17 @@ struct SpeakerIdentity: Codable, Equatable {
 /// snapshot, so two voices in one meeting can't collapse together (unmatched speakers enroll only
 /// past a duration floor, keeping brief diarization fragments out of the database).
 actor SpeakerStore {
+    /// The process-wide store. The naming UI and the transcription pipeline share one instance so
+    /// their writes to `voiceprints.json` serialize through a single actor.
+    static let shared = SpeakerStore()
+
     private let directory: URL?
-    private let now: @Sendable () -> Date
-    private let uuid: @Sendable () -> UUID
     private let logger = Logger(category: "SpeakerStore")
 
-    /// - Parameters:
-    ///   - directory: where `voiceprints.json` lives (defaults to the sandbox container's
-    ///     `Application Support/Hark`).
-    ///   - now: enrollment-time source, injected so tests can pin `enrolledAt`.
-    ///   - uuid: id source for fresh voiceprints and samples, injected so tests can pin ids.
-    init(
-        directory: URL? = nil,
-        now: @escaping @Sendable () -> Date = Date.init,
-        uuid: @escaping @Sendable () -> UUID = UUID.init
-    ) {
+    /// - Parameter directory: where `voiceprints.json` lives (defaults to the sandbox container's
+    ///   `Application Support/Hark`).
+    init(directory: URL? = nil) {
         self.directory = directory
-        self.now = now
-        self.uuid = uuid
     }
 
     /// Resolves each cluster to a stable identity, enrolling and persisting new voiceprints.
@@ -134,6 +65,117 @@ actor SpeakerStore {
         return resolved
     }
 
+    // MARK: Editing
+
+    /// Every saved voiceprint, including merge tombstones so the caller can resolve redirects. Throws
+    /// only when the file exists but can't be decoded (an absent file is an empty database).
+    func voiceprints() throws -> [Voiceprint] {
+        try load()
+    }
+
+    /// The surviving voiceprint for an id, following merge redirects, or `nil` if unknown.
+    func voiceprint(id: String) throws -> Voiceprint? {
+        try Voiceprint.survivor(of: id, in: load().byID)
+    }
+
+    /// Sets (or clears) a voiceprint's name, following merge redirects to the survivor. Whitespace-only
+    /// names clear it back to unnamed. A missing `id` is a no-op so the caller doesn't have to guard
+    /// against a since-deleted voice.
+    func rename(id: String, to name: String?) throws {
+        var voiceprints = try load()
+        guard let index = survivorIndex(of: id, in: voiceprints) else { return }
+        voiceprints[index] = voiceprints[index].renamed(to: name?.normalizedName)
+        try save(voiceprints)
+    }
+
+    /// Removes a voiceprint, following merge redirects to the survivor. A missing `id` is a no-op.
+    func remove(id: String) throws {
+        let voiceprints = try load()
+        guard let index = survivorIndex(of: id, in: voiceprints) else { return }
+        let survivorID = voiceprints[index].id
+        try save(voiceprints.filter { $0.id != survivorID })
+    }
+
+    /// Overwrites the whole database (the labeling window's undo primitive); tombstones are kept as given.
+    func replaceAll(_ voiceprints: [Voiceprint]) throws {
+        try save(voiceprints)
+    }
+
+    /// Enrolls a brand-new voiceprint from a diarized embedding, e.g. when the labeling window adds a
+    /// new voice. A deliberate action, so it skips the automatic enrollment's duration floor.
+    func enroll(embedding: Embedding, duration: Float, name: String?) throws -> Voiceprint {
+        var voiceprints = try load()
+        let sample = VoiceSample(id: UUID(), embedding: embedding, duration: duration, enrolledAt: Date())
+        let voiceprint = Voiceprint(id: UUID().uuidString, name: name?.normalizedName, samples: [sample])
+        voiceprints.append(voiceprint)
+        try save(voiceprints)
+        return voiceprint
+    }
+
+    /// Adds an enrollment sample to an existing voiceprint (following merge redirects to the survivor),
+    /// e.g. when the user confirms "this is someone I know", so the identity learns the new session's voice.
+    /// - Throws: `SpeakerStoreError.unknownVoiceprint`.
+    func addSample(toVoiceprint id: String, embedding: Embedding, duration: Float) throws {
+        var voiceprints = try load()
+        guard let index = survivorIndex(of: id, in: voiceprints) else {
+            throw SpeakerStoreError.unknownVoiceprint
+        }
+        let sample = VoiceSample(id: UUID(), embedding: embedding, duration: duration, enrolledAt: Date())
+        voiceprints[index] = voiceprints[index].adding(sample)
+        try save(voiceprints)
+    }
+
+    /// Merges one voiceprint into another (two over-split speakers are the same person): the survivor
+    /// keeps its id and name, gains the source's samples, and the source becomes a redirect tombstone
+    /// so other sessions bound to it still resolve. Both ids follow merge redirects; a no-op returning
+    /// the survivor when they resolve to the same voiceprint.
+    /// - Throws: `SpeakerStoreError.unknownVoiceprint` when either id is missing.
+    func merge(_ sourceID: String, into destinationID: String) throws -> Voiceprint {
+        var voiceprints = try load()
+        guard let destinationIndex = survivorIndex(of: destinationID, in: voiceprints),
+              let sourceIndex = survivorIndex(of: sourceID, in: voiceprints)
+        else {
+            throw SpeakerStoreError.unknownVoiceprint
+        }
+        let source = voiceprints[sourceIndex]
+        let destination = voiceprints[destinationIndex]
+        guard source.id != destination.id else { return destination }
+        let merged = Voiceprint(
+            id: destination.id,
+            name: destination.name ?? source.name,
+            samples: destination.samples + source.samples,
+            redirectID: destination.redirectID
+        )
+        voiceprints[destinationIndex] = merged
+        voiceprints[sourceIndex] = source.redirected(to: destination.id)
+        try save(voiceprints)
+        return merged
+    }
+
+    /// The nearest named voiceprint to an embedding and its cosine distance, for warning before a
+    /// deliberate enroll duplicates a voice the user already saved. Considers only named survivors, so
+    /// an unnamed auto-enrollment is never offered as the match. `nil` when there is no named voice.
+    func nearestNamed(to embedding: Embedding) throws -> (voiceprint: Voiceprint, distance: Float)? {
+        let named = try load().filter { !$0.isTombstone && $0.name != nil && $0.centroid != nil }
+        guard !named.isEmpty else { return nil }
+        // Seed permissively (threshold 2 spans the cosine-distance range) so the query ranks every
+        // named voice; matches are nearest-first, so `.first` is the closest.
+        let snapshot = matcher(seededWith: named, threshold: 2)
+        guard let match = snapshot.findMatchingSpeakers(with: embedding.values, speakerThreshold: 2).first,
+              let voiceprint = named.first(where: { $0.id == match.id })
+        else { return nil }
+        return (voiceprint, match.distance)
+    }
+
+    /// The array index of the surviving voiceprint for `id`. Sessions merged elsewhere can still hold
+    /// a tombstoned id, so every edit resolves to the survivor rather than mutating a tombstone.
+    private func survivorIndex(of id: String, in voiceprints: [Voiceprint]) -> Int? {
+        guard let survivor = Voiceprint.survivor(of: id, in: voiceprints.byID) else { return nil }
+        return voiceprints.firstIndex { $0.id == survivor.id }
+    }
+
+    // MARK: Matching
+
     /// Matches each cluster against the frozen snapshot and decides enrollments, without persisting.
     private func assign(
         _ clusters: [SpeakerCluster],
@@ -142,11 +184,7 @@ actor SpeakerStore {
         threshold: Float,
         enrollFloor: Float
     ) -> (resolved: [String: SpeakerIdentity], enrolled: [Voiceprint]) {
-        var byID: [String: Voiceprint] = [:]
-        for voiceprint in known {
-            byID[voiceprint.id] = voiceprint
-        }
-
+        let byID = known.byID
         var claimed: Set<String> = []
         var enrolled: [Voiceprint] = []
         var resolved: [String: SpeakerIdentity] = [:]
@@ -156,35 +194,36 @@ actor SpeakerStore {
         for cluster in clusters.sorted(by: {
             $0.duration != $1.duration ? $0.duration > $1.duration : $0.id < $1.id
         }) {
-            guard cluster.embedding.count == SpeakerManager.embeddingSize else { continue }
-            let matches = snapshot.findMatchingSpeakers(with: cluster.embedding, speakerThreshold: threshold)
+            let matches = snapshot.findMatchingSpeakers(with: cluster.embedding.values, speakerThreshold: threshold)
             // matches is nearest-first so the first unclaimed match is the closest identity still
             // available to this cluster.
             if let match = matches.first(where: { !claimed.contains($0.id) }) {
                 claimed.insert(match.id)
-                resolved[cluster.id] = SpeakerIdentity(id: match.id, name: byID[match.id]?.name)
+                resolved[cluster.id] = SpeakerIdentity(
+                    id: match.id, name: byID[match.id]?.name, distance: match.distance
+                )
             } else if cluster.duration >= enrollFloor {
                 let sample = VoiceSample(
-                    id: uuid(), embedding: cluster.embedding, duration: cluster.duration, enrolledAt: now()
+                    id: UUID(), embedding: cluster.embedding, duration: cluster.duration, enrolledAt: Date()
                 )
-                let fresh = Voiceprint(id: uuid().uuidString, name: nil, samples: [sample])
+                let fresh = Voiceprint(id: UUID().uuidString, name: nil, samples: [sample])
                 enrolled.append(fresh)
                 claimed.insert(fresh.id)
-                resolved[cluster.id] = SpeakerIdentity(id: fresh.id, name: nil)
+                resolved[cluster.id] = SpeakerIdentity(id: fresh.id, name: nil, distance: nil)
             }
         }
         return (resolved, enrolled)
     }
 
-    /// A `SpeakerManager` seeded with the known voiceprints for read-only matching. Built via
-    /// `upsertSpeaker` to avoid naming FluidAudio's `Speaker`, which a same-named module type shadows.
+    /// A `SpeakerManager` seeded with the known voiceprints for read-only matching; tombstones are
+    /// skipped so a merged-away id can never be matched again. Built via `upsertSpeaker` to avoid
+    /// naming FluidAudio's `Speaker`, which a same-named module type shadows.
     private func matcher(seededWith known: [Voiceprint], threshold: Float) -> SpeakerManager {
         var manager = SpeakerManager(speakerThreshold: threshold)
-        for voiceprint in known {
-            let centroid = voiceprint.centroid
-            guard centroid.count == SpeakerManager.embeddingSize else { continue }
+        for voiceprint in known where !voiceprint.isTombstone {
+            guard let centroid = voiceprint.centroid else { continue }
             manager.upsertSpeaker(
-                id: voiceprint.id, currentEmbedding: centroid, duration: voiceprint.totalDuration
+                id: voiceprint.id, currentEmbedding: centroid.values, duration: voiceprint.totalDuration
             )
         }
         return manager
@@ -221,10 +260,9 @@ actor SpeakerStore {
     private func writeDebugDump(_ clusters: [SpeakerCluster], against snapshot: SpeakerManager, threshold: Float) {
         guard ProcessInfo.processInfo.flag(forKey: "HARK_SPEAKER_DEBUG") else { return }
         let dump = clusters
-            .filter { $0.embedding.count == SpeakerManager.embeddingSize }
             .map { cluster -> DebugMatch in
                 // 2 is the maximum cosine distance, so this ranks every known voiceprint (.first is nearest).
-                let nearest = snapshot.findMatchingSpeakers(with: cluster.embedding, speakerThreshold: 2).first
+                let nearest = snapshot.findMatchingSpeakers(with: cluster.embedding.values, speakerThreshold: 2).first
                 return DebugMatch(
                     cluster: cluster.id,
                     duration: Double(cluster.duration),

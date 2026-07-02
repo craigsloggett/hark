@@ -1,8 +1,14 @@
 import AppKit
 import SwiftUI
 
-/// General settings for driving Hark with a global keyboard shortcut.
+/// General settings covering Hark's window posture, privacy, and the global keyboard shortcut.
 struct GeneralSettingsView: View {
+    @AppStorage(Preferences.Key.menuBarOnly)
+    private var isMenuBarOnly = Preferences.Default.isMenuBarOnly
+
+    @AppStorage(Preferences.Key.showMenuBarIcon)
+    private var showsMenuBarIcon = Preferences.Default.showsMenuBarIcon
+
     var body: some View {
         Form {
             Section {
@@ -20,13 +26,37 @@ struct GeneralSettingsView: View {
                 }
             }
 
-            Section {
-                Text(
-                    "Hark works with a keyboard shortcut you choose. You set it up in the "
-                        + "Shortcuts app, which also lets you start Hark from Spotlight or by "
-                        + "asking Siri."
-                )
-                .foregroundStyle(.secondary)
+            Section("Menu Bar") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Keep Hark in the menu bar only", isOn: $isMenuBarOnly)
+                    Text(
+                        "Hark stays out of the Dock and opens no window at launch. Everything stays "
+                            + "reachable from the menu bar icon."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    // Forced on and locked in menu-bar-only mode, so it shows the effective state
+                    // without overwriting the stored choice.
+                    Toggle("Show the menu bar icon", isOn: isMenuBarOnly ? .constant(true) : $showsMenuBarIcon)
+                        .disabled(isMenuBarOnly)
+                    Text("Always on in menu-bar-only mode, where the icon is the only way to reach Hark.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Privacy") {
+                Label {
+                    Text(
+                        "Recording, transcription, and voice recognition all happen on this Mac. "
+                            + "Hark has no account, no cloud service, and nothing leaves your device."
+                    )
+                    .foregroundStyle(.secondary)
+                } icon: {
+                    Image(systemName: "hand.raised")
+                }
             }
 
             Section("Set Up a Keyboard Shortcut") {
@@ -46,6 +76,10 @@ struct GeneralSettingsView: View {
         }
         .formStyle(.grouped)
         .fixedSize(horizontal: false, vertical: true)
+        // Apply the mode switch immediately; this view is the only writer, so no defaults observer.
+        .onChange(of: isMenuBarOnly) {
+            WindowActivation.shared.apply()
+        }
     }
 
     private func openShortcutsApp() {

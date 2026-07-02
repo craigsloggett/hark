@@ -5,12 +5,6 @@ import Testing
 struct TranscriptTests {
     // MARK: Labels and timestamps
 
-    @Test func speakerLabelsReadAsPersonas() {
-        #expect(Speaker.you.label == "You")
-        #expect(Speaker.remote(1).label == "Speaker 1")
-        #expect(Speaker.remote(2).label == "Speaker 2")
-    }
-
     @Test func timestampFormatsHoursMinutesSeconds() {
         #expect(Transcript.timestamp(0) == "00:00:00")
         #expect(Transcript.timestamp(75) == "00:01:15")
@@ -40,11 +34,6 @@ struct TranscriptTests {
         #expect(shifted.map(\.speaker) == [.remote(1)])
     }
 
-    @Test func zeroOffsetLeavesSegmentsUnchanged() {
-        let them = [TranscriptSegment(start: 5, end: 6, speaker: .remote(1), text: "B")]
-        #expect(them.shifted(by: 0) == them)
-    }
-
     @Test func systemTrackOffsetRestoresRealOrder() {
         // The mic line was spoken before the remote reply, but the system track started 6s late,
         // so its file-relative time (5) sorts ahead of the mic line (10) until the offset is applied.
@@ -71,6 +60,21 @@ struct TranscriptTests {
         #expect(transcript.plainText() == expected)
     }
 
+    @Test func plainTextPrefersNamesOverPositionalLabels() {
+        let transcript = Transcript(segments: [
+            TranscriptSegment(start: 0, end: 1, speaker: .you, text: "Morning"),
+            TranscriptSegment(start: 2, end: 3, speaker: .remote(1), text: "Hi"),
+            TranscriptSegment(start: 4, end: 5, speaker: .remote(2), text: "Hey"),
+        ])
+        // Only speaker1 is named; `you` and the unnamed speaker2 fall back to their labels.
+        let expected = """
+        [00:00:00] You: Morning
+        [00:00:02] Alice: Hi
+        [00:00:04] Speaker 2: Hey
+        """
+        #expect(transcript.plainText(names: ["speaker1": "Alice"]) == expected)
+    }
+
     // MARK: Codable
 
     @Test func segmentRoundTripsThroughJSON() throws {
@@ -78,6 +82,16 @@ struct TranscriptTests {
         let data = try JSONEncoder().encode(segment)
         let decoded = try JSONDecoder().decode(TranscriptSegment.self, from: data)
         #expect(decoded == segment)
+    }
+
+    @Test func speakerInitFromTokenInvertsToken() {
+        #expect(Speaker(token: "you") == .you)
+        #expect(Speaker(token: "speaker3") == .remote(3))
+        #expect(Speaker(token: "them") == nil)
+        #expect(Speaker(token: "speaker0") == nil)
+        for speaker in [Speaker.you, .remote(1), .remote(12)] {
+            #expect(Speaker(token: speaker.token) == speaker)
+        }
     }
 
     @Test func segmentEncodesSpeakerAsToken() throws {

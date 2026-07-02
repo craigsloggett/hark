@@ -5,6 +5,9 @@ struct AdvancedSettingsView: View {
     @AppStorage(Preferences.Key.speakerMatchThreshold)
     private var speakerMatchThreshold = Preferences.Default.speakerMatchThreshold
 
+    @AppStorage(Preferences.Key.speakerConfidentMatchThreshold)
+    private var speakerConfidentMatchThreshold = Preferences.Default.speakerConfidentMatchThreshold
+
     @AppStorage(Preferences.Key.speakerMinEnrollmentDuration)
     private var speakerMinEnrollmentDuration = Preferences.Default.speakerMinEnrollmentDuration
 
@@ -59,8 +62,14 @@ struct AdvancedSettingsView: View {
                 sliderRow(
                     "Matching a known voice",
                     value: $speakerMatchThreshold, range: 0.1 ... 1.5, step: 0.05,
-                    help: "Lower is stricter about matching this session's speakers to voices Hark has "
+                    help: "Lower is stricter about matching this recording's speakers to voices Hark has "
                         + "saved before, so it reuses a saved voice less readily."
+                )
+                sliderRow(
+                    "Confident about a match",
+                    value: $speakerConfidentMatchThreshold, range: 0.1 ... 1.5, step: 0.05,
+                    help: "Matches this close or closer show the saved name outright; weaker ones show "
+                        + "as \"Likely <name>\" for you to confirm."
                 )
                 sliderRow(
                     "Speech needed to remember a voice",
@@ -121,7 +130,7 @@ struct AdvancedSettingsView: View {
                     "Limit number of speakers",
                     value: $maxSpeakers, range: 0 ... 10,
                     valueText: { $0 == 0 ? "Auto" : "\($0)" },
-                    help: "Cap how many speakers Hark may find in a session; it tends to find close "
+                    help: "Cap how many speakers Hark may find in a recording; it tends to find close "
                         + "to this many. Auto lets it decide."
                 )
             }
@@ -165,7 +174,6 @@ struct AdvancedSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(height: 540)
     }
 
     // MARK: Rows
@@ -239,6 +247,7 @@ struct AdvancedSettingsView: View {
 
     private func resetToDefaults() {
         speakerMatchThreshold = Preferences.Default.speakerMatchThreshold
+        speakerConfidentMatchThreshold = Preferences.Default.speakerConfidentMatchThreshold
         speakerMinEnrollmentDuration = Preferences.Default.speakerMinEnrollmentDuration
         voiceprintMaxSamples = Preferences.Default.voiceprintMaxSamples
         clusteringThreshold = Preferences.Default.diarizationClusteringThreshold

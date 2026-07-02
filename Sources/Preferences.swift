@@ -14,11 +14,14 @@ enum Preferences {
         static let diarizationExclusiveSegments = "diarizationExclusiveSegments"
         static let diarizationMaxSpeakers = "diarizationMaxSpeakers"
         static let speakerMatchThreshold = "speakerMatchThreshold"
+        static let speakerConfidentMatchThreshold = "speakerConfidentMatchThreshold"
         static let speakerMinEnrollmentDuration = "speakerMinEnrollmentDuration"
         static let voiceprintMaxSamples = "voiceprintMaxSamples"
         static let asrDualDecodeArbitration = "asrDualDecodeArbitration"
         static let asrParallelChunkConcurrency = "asrParallelChunkConcurrency"
         static let utteranceGap = "utteranceGap"
+        static let menuBarOnly = "menuBarOnly"
+        static let showMenuBarIcon = "showMenuBarIcon"
     }
 
     /// Defaults, in seconds where applicable. Those that defer to FluidAudio reference its
@@ -42,6 +45,11 @@ enum Preferences {
         /// Maximum cosine distance to match a session speaker to an enrolled voiceprint (lower is
         /// stricter). A different metric from `diarizationClusteringThreshold`, so the value doesn't carry over.
         static let speakerMatchThreshold = 0.65
+
+        /// Cosine distance at or below which an auto-match is shown confidently; a match between this
+        /// and `speakerMatchThreshold` is shown as tentative ("Likely <name>") for the user to confirm.
+        /// hark-owned, no SDK constant.
+        static let speakerConfidentMatchThreshold = 0.4
 
         /// Community-1's segmentation step ratio (lower sharpens turn boundaries at roughly 2x cost).
         static var diarizationStepRatio: Double {
@@ -92,6 +100,13 @@ enum Preferences {
         static var asrParallelChunkConcurrency: Int {
             ASRConfig().parallelChunkConcurrency
         }
+
+        /// Windowed like a normal Dock app; menu-bar-only is the opt-in "get out of the way" posture.
+        static let isMenuBarOnly = false
+
+        /// Hidden only by explicit choice, and never in menu-bar-only mode where the icon is the only
+        /// way back into the app.
+        static let showsMenuBarIcon = true
     }
 
     /// Seeds the registration domain so `defaults read` shows the effective defaults (reads fall
@@ -107,11 +122,14 @@ enum Preferences {
             Key.diarizationExclusiveSegments: Default.diarizationUsesExclusiveSegments,
             Key.diarizationMaxSpeakers: Default.diarizationMaxSpeakers,
             Key.speakerMatchThreshold: Default.speakerMatchThreshold,
+            Key.speakerConfidentMatchThreshold: Default.speakerConfidentMatchThreshold,
             Key.speakerMinEnrollmentDuration: Default.speakerMinEnrollmentDuration,
             Key.voiceprintMaxSamples: Default.voiceprintMaxSamples,
             Key.asrDualDecodeArbitration: Default.asrUsesDualDecodeArbitration,
             Key.asrParallelChunkConcurrency: Default.asrParallelChunkConcurrency,
             Key.utteranceGap: Default.utteranceGap,
+            Key.menuBarOnly: Default.isMenuBarOnly,
+            Key.showMenuBarIcon: Default.showsMenuBarIcon,
         ])
     }
 
@@ -151,6 +169,10 @@ enum Preferences {
         resolved(Key.speakerMatchThreshold, default: Default.speakerMatchThreshold)
     }
 
+    static var speakerConfidentMatchThreshold: Double {
+        resolved(Key.speakerConfidentMatchThreshold, default: Default.speakerConfidentMatchThreshold)
+    }
+
     static var speakerMinEnrollmentDuration: Double {
         resolved(Key.speakerMinEnrollmentDuration, default: Default.speakerMinEnrollmentDuration)
     }
@@ -169,6 +191,14 @@ enum Preferences {
 
     static var utteranceGap: Double {
         resolved(Key.utteranceGap, default: Default.utteranceGap)
+    }
+
+    static var isMenuBarOnly: Bool {
+        resolved(Key.menuBarOnly, default: Default.isMenuBarOnly)
+    }
+
+    static var showsMenuBarIcon: Bool {
+        resolved(Key.showMenuBarIcon, default: Default.showsMenuBarIcon)
     }
 
     /// The stored `Double` for `key`, or `fallback` when it is unset.

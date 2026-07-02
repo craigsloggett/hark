@@ -11,25 +11,26 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Button(recorder.isRecording ? "Stop & Transcribe" : "Start Recording") {
+        Button(
+            recorder.isRecording ? "Stop & Transcribe" : "Start Recording",
+            systemImage: recorder.isRecording ? "stop.circle" : "record.circle"
+        ) {
             recorder.toggleRecording()
         }
 
-        Button("Transcribe Last Session") {
+        Button("Transcribe Last Recording", systemImage: "waveform") {
             recorder.transcribeLastSession()
         }
         .disabled(!canTranscribe)
 
         Divider()
 
-        Button("Open Last Transcript") {
-            if let lastTranscriptURL {
-                NSWorkspace.shared.open(lastTranscriptURL)
-            }
+        Button("Open Last Transcript", systemImage: "text.document") {
+            SessionsNavigation.shared.wantsLatest = true
+            openSessions()
         }
-        .disabled(lastTranscriptURL == nil)
 
-        Button("Reveal Last Session in Finder") {
+        Button("Reveal Last Recording in Finder", systemImage: "folder") {
             if let session = recorder.lastSessionURL {
                 NSWorkspace.shared.activateFileViewerSelecting([session])
             }
@@ -38,12 +39,16 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Button("Settings…") {
+        Button("Browse Transcripts…", systemImage: "list.bullet.rectangle") {
+            openSessions()
+        }
+
+        Button("Settings…", systemImage: "gear") {
             showSettings()
         }
         .keyboardShortcut(",", modifiers: .command)
 
-        Button("Quit Hark") {
+        Button("Quit Hark", systemImage: "xmark.rectangle") {
             NSApplication.shared.terminate(nil)
         }
         .keyboardShortcut("q", modifiers: .command)
@@ -66,14 +71,15 @@ struct MenuBarContent: View {
             && recorder.transcriptionState != .running
     }
 
-    private var lastTranscriptURL: URL? {
-        guard case let .finished(url) = recorder.transcriptionState else { return nil }
-        return url
-    }
-
     private func showSettings() {
         // A menu bar (accessory) app must activate itself to bring the window to the front.
         NSApp.activate(ignoringOtherApps: true)
         openWindow(id: SettingsWindow.id)
+    }
+
+    private func openSessions() {
+        // Promote to a Dock app before the window mounts so its icon and ⌘-Tab entry appear at once.
+        WindowActivation.shared.promote()
+        openWindow(id: SessionsWindow.id)
     }
 }

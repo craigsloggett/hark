@@ -9,7 +9,7 @@ final class AudioRecorder {
     enum TranscriptionState: Equatable {
         case idle
         case running
-        case finished(URL)
+        case finished
         case failed(String)
     }
 
@@ -74,7 +74,8 @@ final class AudioRecorder {
         Task {
             do {
                 let transcription = try await transcriber.transcribeSession(at: session, offset: lastSessionOffset)
-                transcriptionState = try .finished(transcriber.write(transcription, to: session))
+                _ = try transcriber.write(transcription, to: session)
+                transcriptionState = .finished
             } catch {
                 logger.error("Transcription failed: \(error, privacy: .public)")
                 transcriptionState = .failed(error.localizedDescription)
@@ -120,9 +121,23 @@ final class AudioRecorder {
     }
 
     static func sessionName(for date: Date) -> String {
+        "hark-\(sessionDateFormatter().string(from: date))"
+    }
+
+    /// Parses a session folder name (`hark-yyyyMMdd-HHmmss`) back to its start date, the inverse of
+    /// `sessionName(for:)`, or `nil` when the name doesn't match.
+    static func date(from name: String) -> Date? {
+        let prefix = "hark-"
+        guard name.hasPrefix(prefix) else { return nil }
+        return sessionDateFormatter().date(from: String(name.dropFirst(prefix.count)))
+    }
+
+    private static func sessionDateFormatter() -> DateFormatter {
         let formatter = DateFormatter()
+        // Pins the Gregorian calendar so folder names don't shift with the user's locale.
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return "hark-\(formatter.string(from: date))"
+        return formatter
     }
 
     private static let micSettings: [String: Any] = [
