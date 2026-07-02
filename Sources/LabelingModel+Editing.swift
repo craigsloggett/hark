@@ -7,10 +7,7 @@ extension LabelingModel {
     func renameOverride(token: String, to name: String) async {
         guard var detail else { return }
         recordUndo("Rename")
-        var speaker = detail.overlay[token] ?? SessionSpeaker()
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        speaker.nameOverride = trimmed.isEmpty ? nil : trimmed
-        detail.overlay[token] = speaker
+        detail.overlay[token, default: SessionSpeaker()].nameOverride = name.normalizedName
         await apply(detail, reloadDatabase: false)
     }
 
@@ -46,17 +43,16 @@ extension LabelingModel {
     /// enrolls a new voiceprint from the stored centroid when there is one, or, for a recording with no
     /// saved voice sample, falls back to a transcript-only label so the action is never a silent no-op.
     func nameSpeaker(token: String, to name: String) async {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, var detail else { return }
+        guard let name = name.normalizedName, var detail else { return }
         if let id = detail.overlay[token]?.voiceprintID {
             recordUndo("Name Voice")
-            await attempt("Rename voice") { try await SpeakerStore.shared.rename(id: id, to: trimmed) }
+            await attempt("Rename voice") { try await SpeakerStore.shared.rename(id: id, to: name) }
             detail.overlay[token]?.confirmed = true
             await apply(detail, reloadDatabase: true)
         } else if canEnroll(token: token) {
-            await enrollAndBind(token: token, name: trimmed, undoLabel: "Name Voice")
+            await enrollAndBind(token: token, name: name, undoLabel: "Name Voice")
         } else {
-            await renameOverride(token: token, to: trimmed)
+            await renameOverride(token: token, to: name)
         }
     }
 
@@ -126,8 +122,7 @@ extension LabelingModel {
     func probableDuplicate(
         token: String, name: String?
     ) async -> (match: Voiceprint, reason: PendingEnrollment.Reason)? {
-        let trimmed = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty, let sameName = namedVoice(matching: trimmed) {
+        if let name = name?.normalizedName, let sameName = namedVoice(matching: name) {
             return (sameName, .sameName)
         }
         guard let embedding = detail?.overlay[token]?.embedding,
@@ -176,10 +171,9 @@ extension LabelingModel {
 
     /// Renames a saved voice everywhere it is used, a global identity edit unlike a transcript relabel.
     func renameVoice(id: String, to name: String) async {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard let name = name.normalizedName else { return }
         recordUndo("Rename Voice")
-        try? await SpeakerStore.shared.rename(id: id, to: trimmed)
+        await attempt("Rename voice") { try await SpeakerStore.shared.rename(id: id, to: name) }
         await finishEdit(reloadDatabase: true)
     }
 

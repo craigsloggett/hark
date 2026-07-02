@@ -92,7 +92,7 @@ actor SpeakerStore {
     func rename(id: String, to name: String?) throws {
         var voiceprints = try load()
         guard let index = survivorIndex(of: id, in: voiceprints) else { return }
-        voiceprints[index] = voiceprints[index].renamed(to: normalizedName(name))
+        voiceprints[index] = voiceprints[index].renamed(to: name?.normalizedName)
         try save(voiceprints)
     }
 
@@ -116,7 +116,7 @@ actor SpeakerStore {
         guard embedding.count == SpeakerManager.embeddingSize else { throw SpeakerStoreError.invalidEmbedding }
         var voiceprints = try load()
         let sample = VoiceSample(id: UUID(), embedding: embedding, duration: duration, enrolledAt: Date())
-        let voiceprint = Voiceprint(id: UUID().uuidString, name: normalizedName(name), samples: [sample])
+        let voiceprint = Voiceprint(id: UUID().uuidString, name: name?.normalizedName, samples: [sample])
         voiceprints.append(voiceprint)
         try save(voiceprints)
         return voiceprint
@@ -213,11 +213,6 @@ actor SpeakerStore {
     private func survivorIndex(of id: String, in voiceprints: [Voiceprint]) -> Int? {
         guard let survivor = Voiceprint.survivor(of: id, in: byID(voiceprints)) else { return nil }
         return voiceprints.firstIndex { $0.id == survivor.id }
-    }
-
-    private func normalizedName(_ name: String?) -> String? {
-        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (trimmed?.isEmpty ?? true) ? nil : trimmed
     }
 
     // MARK: Matching
