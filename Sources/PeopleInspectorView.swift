@@ -14,10 +14,11 @@ struct PeopleInspectorView: View {
     @State private var renameDraft = ""
     @State private var forgettingID: String?
     @State private var confirmingMerge = false
+    @Namespace private var scopeThumb
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            scopePicker
             if scope == .transcript {
                 transcriptPeople
             } else {
@@ -31,51 +32,75 @@ struct PeopleInspectorView: View {
         .mergeVoicesDialog(isPresented: $confirmingMerge) { await model.mergeSelected() }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("People")
-                .font(.headline)
-            Picker("Scope", selection: $scope) {
-                Text("This Transcript").tag(Scope.transcript)
-                Text("Everyone").tag(Scope.everyone)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+    /// Hand-rolled because SwiftUI's segmented picker on macOS always hugs its content: AppKit's
+    /// `segmentDistribution = .fillEqually` has no SwiftUI equivalent, so a stock Picker cannot
+    /// span the inspector the way the HIG-style switchers in AppKit apps (Xcode, Calendar) do.
+    private var scopePicker: some View {
+        HStack(spacing: 0) {
+            scopeSegment(.transcript, icon: "text.bubble", label: "This Transcript")
+            scopeSegment(.everyone, icon: "person.3", label: "Everyone")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
+        .background(Capsule().fill(.quinary))
+        .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 4)
+    }
+
+    private func scopeSegment(_ target: Scope, icon: String, label: String) -> some View {
+        Button {
+            withAnimation(.snappy(duration: 0.2)) {
+                scope = target
+            }
+        } label: {
+            Image(systemName: icon)
+                .fontWeight(.medium)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(scope == target ? Color.white : .primary)
+        .background {
+            if scope == target {
+                Capsule()
+                    .fill(Color.accentColor)
+                    .matchedGeometryEffect(id: "thumb", in: scopeThumb)
+            }
+        }
+        .help(label)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(scope == target ? .isSelected : [])
     }
 
     @ViewBuilder
     private var transcriptPeople: some View {
         if model.detail == nil {
-            Spacer()
             Text("Select a transcript")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Spacer()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            List(model.rosterTokens, id: \.self, selection: $model.peopleSelection) { token in
-                PersonRow(token: token, model: model)
-                    .selectionDisabled(token == Speaker.you.token)
-                    .contextMenu { rowMenu(token) }
-            }
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 6) {
-                Button("Merge Selected") {
-                    confirmingMerge = true
+            VStack(spacing: 0) {
+                List(model.rosterTokens, id: \.self, selection: $model.peopleSelection) { token in
+                    PersonRow(token: token, model: model)
+                        .selectionDisabled(token == Speaker.you.token)
+                        .contextMenu { rowMenu(token) }
                 }
-                .disabled(!model.canMerge)
-                Text("Same person shown twice? Select both and merge.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Button("Merge Selected") {
+                        confirmingMerge = true
+                    }
+                    .disabled(!model.canMerge)
+                    Text("Same person shown twice? Select both and merge.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
         }
     }
 

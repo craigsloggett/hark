@@ -53,13 +53,10 @@ struct AllPeopleView: View {
             if !model.voices.isEmpty {
                 Button("Merge Selected") { confirmingMerge = true }
                     .disabled(!model.canMergeVoices)
-                Text("Same person listed twice? Select both and merge.")
+                Text("Same person shown twice? Select both and merge.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
-            Text("Voices are recognized on this Mac and never leave it.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
