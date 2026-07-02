@@ -22,7 +22,7 @@ struct PendingEnrollment: Identifiable {
     let reason: Reason
 
     private var matchName: String {
-        match.name ?? "a saved voice"
+        match.name ?? "someone you know"
     }
 
     var dialogTitle: String {
@@ -40,11 +40,11 @@ struct PendingEnrollment: Identifiable {
     var dialogMessage: String {
         switch reason {
         case .sameName:
-            "You already have a saved voice named \(matchName). Add this recording to it, "
-                + "or keep them as separate voices?"
+            "You already know someone named \(matchName). Add this recording's voice to them, "
+                + "or save a separate person?"
         case .nearDuplicate:
-            "This sounds like \(matchName), which Hark already knows. Add this recording to "
-                + "\(matchName), or save it as a separate voice?"
+            "This sounds like \(matchName). Add this recording's voice to them, "
+                + "or save a separate person?"
         }
     }
 }

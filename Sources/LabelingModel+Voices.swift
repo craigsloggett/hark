@@ -34,7 +34,6 @@ extension LabelingModel {
         VoiceSummary(
             id: voiceprint.id,
             name: voiceprint.name,
-            sampleCount: voiceprint.samples.count,
             recordingCount: voiceUsage[voiceprint.id] ?? 0
         )
     }

@@ -31,12 +31,15 @@ extension LabelingModel {
         await apply(detail, reloadDatabase: false)
     }
 
-    /// Confirms a tentative auto-match so it reads plainly, without teaching the voice this clip.
+    /// Confirms a tentative auto-match and teaches the voice this clip. "Yes, it's them" is the
+    /// deliberate affirmation that makes the sample trustworthy, so recognition sharpens as a side
+    /// effect rather than through a separate teaching step the user has to discover.
     func confirmMatch(token: String) async {
-        guard var detail, detail.overlay[token]?.voiceprintID != nil else { return }
+        guard var detail, let id = detail.overlay[token]?.voiceprintID else { return }
         recordUndo("Confirm")
+        await teach(token: token, voiceprintID: id)
         detail.overlay[token]?.confirmed = true
-        await apply(detail, reloadDatabase: false)
+        await apply(detail, reloadDatabase: true)
     }
 
     /// Names an unlabeled speaker: renames the bound voiceprint if one exists (enrollment identity),
@@ -58,7 +61,7 @@ extension LabelingModel {
 
     /// Assigns this transcript's speaker to a saved voice. Label-only by design: it does not teach the
     /// voice this clip, so a wrong pick is a cheap, reversible correction rather than a polluting one
-    /// (teaching is the deliberate `teachVoice`).
+    /// (only the deliberate affirmations teach: `confirmMatch` and the duplicate dialog's reuse).
     func rebind(token: String, toVoiceprint id: String) async {
         guard var detail else { return }
         recordUndo("Assign Voice")
@@ -66,26 +69,15 @@ extension LabelingModel {
         await apply(detail, reloadDatabase: false)
     }
 
-    /// Teaches the bound saved voice this clip, improving future recognition. A deliberate act, so a
-    /// casual assignment never shifts a voice's centroid on its own; teaching also confirms the match.
-    func teachVoice(token: String) async {
-        guard var detail,
-              let id = detail.overlay[token]?.voiceprintID,
-              let embedding = detail.overlay[token]?.embedding
-        else { return }
-        recordUndo("Teach Voice")
+    /// Adds this speaker's stored clip to a saved voice, the recognition side of a deliberate "yes,
+    /// it's them". A speaker without a stored sample confirms without teaching.
+    private func teach(token: String, voiceprintID id: String) async {
+        guard let embedding = detail?.overlay[token]?.embedding else { return }
         await attempt("Teach voice") {
             try await SpeakerStore.shared.addSample(
-                toVoiceprint: id, embedding: embedding, duration: detail.overlay[token]?.duration ?? 0
+                toVoiceprint: id, embedding: embedding, duration: detail?.overlay[token]?.duration ?? 0
             )
         }
-        detail.overlay[token]?.confirmed = true
-        await apply(detail, reloadDatabase: true)
-    }
-
-    /// Enrolls a brand-new voiceprint for this speaker (optionally named) and binds to it.
-    func addNewVoice(token: String, name: String?) async {
-        await enrollAndBind(token: token, name: name, undoLabel: "Add Voice")
     }
 
     /// Enrolls a new voiceprint for this speaker, unless it would duplicate a voice Hark already knows,
@@ -158,13 +150,7 @@ extension LabelingModel {
     private func useExistingVoice(token: String, id: String) async {
         guard var detail else { return }
         recordUndo("Use Saved Voice")
-        if let embedding = detail.overlay[token]?.embedding {
-            await attempt("Teach voice") {
-                try await SpeakerStore.shared.addSample(
-                    toVoiceprint: id, embedding: embedding, duration: detail.overlay[token]?.duration ?? 0
-                )
-            }
-        }
+        await teach(token: token, voiceprintID: id)
         detail.overlay[token, default: SessionSpeaker()].bind(to: id)
         await apply(detail, reloadDatabase: true)
     }

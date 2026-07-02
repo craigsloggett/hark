@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// The chip's naming and assignment popover. It reshapes around the speaker's state so each state has
-/// a full set of exits: an unidentified voice can be named or matched; a saved voice can be switched,
-/// unassigned, or taught; a transcript label can be renamed or cleared. Assigning a voice only labels
-/// this transcript, keeping "relabel here" distinct from "teach or enroll the voice".
+/// The chip's naming popover, reduced to name-or-confirm: one Name field that routes through
+/// `nameSpeaker` (which renames, saves a new person, or falls back to a transcript label, so the user
+/// never picks a storage tier), a yes/no pair for a tentative match, and the list of known people to
+/// reassign to. Recognition upkeep (teaching, enrolling) happens implicitly behind those answers.
 struct SpeakerPopover: View {
     let token: String
     let model: LabelingModel
@@ -26,46 +26,20 @@ struct SpeakerPopover: View {
     private func content(for binding: SpeakerBinding, tentative: Bool) -> some View {
         switch binding {
         case .unknown:
-            if model.canEnroll(token: token) {
-                nameField(
-                    title: "Name this voice",
-                    placeholder: "e.g. Priya, Marcus",
-                    footnote: "Saves this voice so Hark recognizes it in other recordings."
-                ) { await model.nameSpeaker(token: token, to: draft) }
-            } else {
-                nameField(
-                    title: "Label this speaker",
-                    placeholder: "e.g. Chris",
-                    footnote: "Shows this name in this transcript. This recording has no saved voice "
-                        + "sample, so Hark can't learn the voice for other recordings."
-                ) { await model.renameOverride(token: token, to: draft) }
-            }
+            nameField
             knownList(title: "Someone you know")
-            addNewButton
         case .localLabel:
-            nameField(
-                title: "Rename in this transcript only",
-                placeholder: "Label for this transcript",
-                footnote: "Changes only this transcript, not a saved voice."
-            ) { await model.renameOverride(token: token, to: draft) }
-            actionRow("Clear label", systemImage: "xmark.circle") { await model.clearLabel(token: token) }
+            nameField
+            actionRow("Clear name", systemImage: "xmark.circle") { await model.clearLabel(token: token) }
             knownList(title: "Someone you know")
-            addNewButton
         case .savedVoice:
             if model.resolver.name(for: token) == nil {
-                // Recognized but unnamed: name the saved voice in place, so the user isn't pushed to
-                // "Add as a new voice" and fork this speaker into a duplicate identity.
-                nameField(
-                    title: "Name this voice",
-                    placeholder: "e.g. Priya, Marcus",
-                    footnote: "Names the voice Hark already recognizes, across every recording it's in."
-                ) { await model.nameSpeaker(token: token, to: draft) }
+                // Recognized but unnamed: name the known person in place, so the user isn't pushed to
+                // fork this speaker into a duplicate identity.
+                nameField
             }
             savedVoiceActions(tentative: tentative)
             knownList(title: "Switch to someone else")
-            if model.resolver.name(for: token) != nil {
-                addNewButton
-            }
         }
     }
 
@@ -87,7 +61,7 @@ struct SpeakerPopover: View {
         case .unknown:
             "Unidentified speaker"
         case .localLabel:
-            "Labeled in this transcript only"
+            "Named in this transcript only"
         case .savedVoice:
             savedVoiceSubtitle(tentative: tentative)
         }
@@ -99,7 +73,7 @@ struct SpeakerPopover: View {
         } else if model.resolver.name(for: token) == nil {
             "Recognized, not yet named"
         } else {
-            "Saved voice"
+            "Someone Hark knows"
         }
         let others = model.otherRecordings(token: token)
         guard others > 0 else { return base }
@@ -115,14 +89,6 @@ struct SpeakerPopover: View {
             }
             actionRow("Not \(model.resolver.name(for: token) ?? "this person")", systemImage: "person.fill.xmark") {
                 await model.unassign(token: token)
-            }
-            if model.canEnroll(token: token) {
-                actionRow("Teach Hark this voice", systemImage: "waveform.badge.plus") {
-                    await model.teachVoice(token: token)
-                }
-                Text("Adds this clip to the saved voice to sharpen recognition.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -143,34 +109,29 @@ struct SpeakerPopover: View {
         }
     }
 
-    /// Only offered when there is a voice sample to enroll; otherwise the field above labels the
-    /// transcript and a disabled button here would just puzzle the user.
-    @ViewBuilder
-    private var addNewButton: some View {
-        if model.canEnroll(token: token) {
-            Button("Add as a new voice") {
-                submit { await model.addNewVoice(token: token, name: draft.isEmpty ? nil : draft) }
-            }
-        }
-    }
-
-    private func nameField(
-        title: String,
-        placeholder: String,
-        footnote: String,
-        _ action: @escaping () async -> Void
-    ) -> some View {
+    private var nameField: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
+            Text("Name")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            TextField(placeholder, text: $draft)
+            TextField("e.g. Priya, Marcus", text: $draft)
                 .textFieldStyle(.roundedBorder)
-                .onSubmit { submit(action) }
-            Text(footnote)
+                .onSubmit { submit { await model.nameSpeaker(token: token, to: draft) } }
+            Text(nameFootnote)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    /// One sentence on where the name lands, so expectations are set without explaining machinery.
+    private var nameFootnote: String {
+        if case .savedVoice = model.resolver.binding(for: token) {
+            return "Hark knows this voice. The name applies everywhere it appears."
+        }
+        if model.canEnroll(token: token) {
+            return "Hark will recognize them in future recordings."
+        }
+        return "Names them in this transcript only."
     }
 
     private func actionRow(

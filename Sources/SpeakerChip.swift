@@ -106,11 +106,11 @@ struct SpeakerChip: View {
             return "Likely match. Confirm, reject, or click to change."
         }
         switch binding {
-        case .unknown: return "Unidentified speaker. Click to name or assign."
-        case .localLabel: return "Labeled for this transcript only. Click to change."
+        case .unknown: return "Unidentified speaker. Click to name."
+        case .localLabel: return "Named in this transcript only. Click to change."
         case .savedVoice:
             let name = model.resolver.name(for: token)
-            return "Saved voice\(name.map { ": \($0)" } ?? ""). Click to change or unassign."
+            return "Someone Hark knows\(name.map { ": \($0)" } ?? ""). Click to change."
         }
     }
 }

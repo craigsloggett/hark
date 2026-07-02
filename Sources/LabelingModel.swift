@@ -185,16 +185,16 @@ final class LabelingModel {
         detail?.segments.count(where: { $0.speaker.token == token }) ?? 0
     }
 
-    func sampleCount(token: String) -> Int {
-        let speaker = detail?.overlay[token]
-        guard let id = speaker?.voiceprintID,
-              let voiceprint = Voiceprint.survivor(of: id, in: voiceprintsByID)
-        else {
-            // The stored diarized centroid counts as one enrollable sample before any voiceprint exists.
-            let hasEnrollableSample = speaker?.embedding != nil
-            return hasEnrollableSample ? 1 : 0
-        }
-        return voiceprint.samples.count
+    /// The speaker's total speech in this transcript ("2m 14s"), or `nil` under a second of it.
+    func speakingTime(token: String) -> String? {
+        guard let detail else { return nil }
+        let seconds = detail.segments
+            .filter { $0.speaker.token == token }
+            .reduce(0.0) { $0 + max(0, $1.end - $1.start) }
+        guard seconds >= 1 else { return nil }
+        return Duration.seconds(seconds).formatted(
+            .units(allowed: [.hours, .minutes, .seconds], width: .narrow, maximumUnitCount: 2)
+        )
     }
 
     /// How many recordings a token's bound voice appears in beyond this one, for the roster subtitle.

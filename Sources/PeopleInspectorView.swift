@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The People roster for the current transcript: who spoke, with turn and sample counts. A saved voice
-/// can be renamed globally or forgotten from its row's context menu. Selecting two speakers enables
-/// Merge, which fixes a voice the diarizer split into two.
+/// The People roster for the current transcript: who spoke, how much, and where else Hark has heard
+/// them. Renaming and forgetting live in the row's context menu. Selecting two speakers enables Merge,
+/// which fixes one person the diarizer split into two.
 struct PeopleInspectorView: View {
     @Bindable var model: LabelingModel
     @State private var renamingID: String?
@@ -34,7 +34,7 @@ struct PeopleInspectorView: View {
                     confirmingMerge = true
                 }
                 .disabled(!model.canMerge)
-                Text("Same person split into two voices? Select both and merge.")
+                Text("Same person shown twice? Select both and merge.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -51,11 +51,11 @@ struct PeopleInspectorView: View {
     @ViewBuilder
     private func rowMenu(_ token: String) -> some View {
         if case let .savedVoice(id) = model.resolver.binding(for: token) {
-            Button("Rename Saved Voice…") {
+            Button("Rename…") {
                 renameDraft = model.resolver.name(for: token) ?? ""
                 renamingID = id
             }
-            Button("Forget This Voice…", role: .destructive) {
+            Button("Forget…", role: .destructive) {
                 forgettingID = id
             }
         }
@@ -84,12 +84,13 @@ private struct PersonRow: View {
     }
 
     private func subtitle(isYou: Bool) -> String {
-        let turnText = String(count: model.turnCount(token: token), "turn")
-        guard !isYou else { return turnText }
-        var parts = [turnText, String(count: model.sampleCount(token: token), "sample")]
-        let others = model.otherRecordings(token: token)
+        var parts = [String(count: model.turnCount(token: token), "turn")]
+        if let time = model.speakingTime(token: token) {
+            parts.append(time)
+        }
+        let others = isYou ? 0 : model.otherRecordings(token: token)
         if others > 0 {
-            parts.append("in \(String(count: others, "other"))")
+            parts.append("in \(String(count: others, "other recording"))")
         }
         return parts.joined(separator: " · ")
     }

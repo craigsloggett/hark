@@ -1,8 +1,7 @@
-/// A saved voice as the global Voices manager lists it.
+/// A known person as the People manager lists them.
 struct VoiceSummary: Identifiable, Equatable {
     let id: String
     let name: String?
-    let sampleCount: Int
     let recordingCount: Int
 
     var isNamed: Bool {
@@ -10,6 +9,6 @@ struct VoiceSummary: Identifiable, Equatable {
     }
 
     var displayName: String {
-        name ?? "Unnamed voice"
+        name ?? "Unnamed"
     }
 }

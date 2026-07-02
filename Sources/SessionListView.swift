@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The sidebar: the global voices manager, then past recordings newest first, titled by their custom
-/// name when one is set, otherwise by when they were recorded.
+/// The sidebar: the People manager, then past recordings newest first, titled by their custom name
+/// when one is set, otherwise by when they were recorded.
 struct SessionListView: View {
     @Bindable var model: LabelingModel
     @State private var renamingURL: URL?
@@ -9,7 +9,7 @@ struct SessionListView: View {
     var body: some View {
         List(selection: $model.sidebarSelection) {
             Section {
-                Label("All Voices", systemImage: "person.2.wave.2")
+                Label("People", systemImage: "person.2.wave.2")
                     .tag(SidebarItem.voices)
             }
             Section("Recordings") {

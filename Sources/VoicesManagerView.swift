@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// Every saved voice across all recordings, with cross-session rename, forget, and merge, plus a
-/// "possible duplicates" band that surfaces near-identical voices to consolidate. Reached from the
-/// recordings sidebar; its edits share the window's undo.
+/// Everyone Hark knows across all recordings, with cross-session rename, forget, and merge. Reached
+/// from the recordings sidebar; its edits share the window's undo.
 struct VoicesManagerView: View {
     @Bindable var model: LabelingModel
     @State private var renamingID: String?
@@ -14,15 +13,15 @@ struct VoicesManagerView: View {
         Group {
             if model.voices.isEmpty {
                 ContentUnavailableView(
-                    "No saved voices yet",
+                    "No people yet",
                     systemImage: "person.2.wave.2",
-                    description: Text("Name a speaker in a transcript and Hark saves their voice here.")
+                    description: Text("Name a speaker in a transcript and they'll appear here.")
                 )
             } else {
                 content
             }
         }
-        .navigationTitle("Voices")
+        .navigationTitle("People")
         .navigationSubtitle(subtitle)
         .renameVoiceAlert(id: $renamingID, draft: $renameDraft) { id, name in
             await model.renameVoice(id: id, to: name)
@@ -32,7 +31,8 @@ struct VoicesManagerView: View {
     }
 
     private var subtitle: String {
-        String(count: model.voices.count, "saved voice")
+        // "person" pluralizes irregularly, so the naive `String(count:)` helper doesn't apply.
+        model.voices.count == 1 ? "1 person" : "\(model.voices.count) people"
     }
 
     private var content: some View {
@@ -59,7 +59,7 @@ struct VoicesManagerView: View {
         VStack(alignment: .leading, spacing: 6) {
             Button("Merge Selected") { confirmingMerge = true }
                 .disabled(!model.canMergeVoices)
-            Text("Two entries for the same person? Select both and merge.")
+            Text("Same person listed twice? Select both and merge.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -87,6 +87,6 @@ private struct VoiceRow: View {
     }
 
     private var subtitle: String {
-        "\(String(count: voice.sampleCount, "sample")) · in \(String(count: voice.recordingCount, "recording"))"
+        "In \(String(count: voice.recordingCount, "recording"))"
     }
 }

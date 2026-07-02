@@ -58,4 +58,23 @@ struct LabelingModelTests {
         let duplicate = await model.probableDuplicate(token: "speaker1", name: "Priya")
         #expect(duplicate == nil)
     }
+
+    @Test func speakingTimeSumsATokensSegments() {
+        let detail = SessionDetail(
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("hark-test"),
+            segments: [
+                TranscriptSegment(start: 0, end: 65, speaker: .you, text: "Hi"),
+                TranscriptSegment(start: 70, end: 79, speaker: .remote(1), text: "Hello"),
+                TranscriptSegment(start: 80, end: 89, speaker: .you, text: "Bye"),
+                TranscriptSegment(start: 90, end: 90.4, speaker: .remote(2), text: "Mm"),
+            ],
+            overlay: [:]
+        )
+        let model = LabelingModel.preview(detail: detail)
+
+        #expect(model.speakingTime(token: "you") == "1min 14s")
+        #expect(model.speakingTime(token: "speaker1") == "9s")
+        // Under a second of speech reads as noise, not a stat worth a subtitle slot.
+        #expect(model.speakingTime(token: "speaker2") == nil)
+    }
 }
