@@ -11,23 +11,26 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Button(recorder.isRecording ? "Stop & Transcribe" : "Start Recording") {
+        Button(
+            recorder.isRecording ? "Stop & Transcribe" : "Start Recording",
+            systemImage: recorder.isRecording ? "stop.circle" : "record.circle"
+        ) {
             recorder.toggleRecording()
         }
 
-        Button("Transcribe Last Recording") {
+        Button("Transcribe Last Recording", systemImage: "waveform") {
             recorder.transcribeLastSession()
         }
         .disabled(!canTranscribe)
 
         Divider()
 
-        Button("Open Last Transcript") {
+        Button("Open Last Transcript", systemImage: "text.document") {
             SessionsNavigation.shared.wantsLatest = true
             openSessions()
         }
 
-        Button("Reveal Last Recording in Finder") {
+        Button("Reveal Last Recording in Finder", systemImage: "folder") {
             if let session = recorder.lastSessionURL {
                 NSWorkspace.shared.activateFileViewerSelecting([session])
             }
@@ -36,16 +39,16 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Button("Browse Transcripts…") {
+        Button("Browse Transcripts…", systemImage: "list.bullet.rectangle") {
             openSessions()
         }
 
-        Button("Settings…") {
+        Button("Settings…", systemImage: "gear") {
             showSettings()
         }
         .keyboardShortcut(",", modifiers: .command)
 
-        Button("Quit Hark") {
+        Button("Quit Hark", systemImage: "xmark.rectangle") {
             NSApplication.shared.terminate(nil)
         }
         .keyboardShortcut("q", modifiers: .command)
