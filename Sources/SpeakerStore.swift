@@ -92,10 +92,7 @@ actor SpeakerStore {
     func rename(id: String, to name: String?) throws {
         var voiceprints = try load()
         guard let index = survivorIndex(of: id, in: voiceprints) else { return }
-        let existing = voiceprints[index]
-        voiceprints[index] = Voiceprint(
-            id: existing.id, name: normalizedName(name), samples: existing.samples, redirectID: existing.redirectID
-        )
+        voiceprints[index] = voiceprints[index].renamed(to: normalizedName(name))
         try save(voiceprints)
     }
 
@@ -134,11 +131,8 @@ actor SpeakerStore {
         guard let index = survivorIndex(of: id, in: voiceprints) else {
             throw SpeakerStoreError.unknownVoiceprint
         }
-        let existing = voiceprints[index]
         let sample = VoiceSample(id: UUID(), embedding: embedding, duration: duration, enrolledAt: Date())
-        voiceprints[index] = Voiceprint(
-            id: existing.id, name: existing.name, samples: existing.samples + [sample], redirectID: existing.redirectID
-        )
+        voiceprints[index] = voiceprints[index].adding(sample)
         try save(voiceprints)
     }
 
@@ -164,7 +158,7 @@ actor SpeakerStore {
             redirectID: destination.redirectID
         )
         voiceprints[destinationIndex] = merged
-        voiceprints[sourceIndex] = Voiceprint(id: source.id, name: nil, samples: [], redirectID: destination.id)
+        voiceprints[sourceIndex] = source.redirected(to: destination.id)
         try save(voiceprints)
         return merged
     }

@@ -71,6 +71,24 @@ struct Voiceprint: Codable, Equatable {
 
 extension Voiceprint: Identifiable {}
 
+/// Copy helpers for the store's edits, so every construction flows through the capping initializer.
+extension Voiceprint {
+    /// A copy with `name` replacing the current one (`nil` clears it back to unnamed).
+    func renamed(to name: String?) -> Voiceprint {
+        Voiceprint(id: id, name: name, samples: samples, redirectID: redirectID)
+    }
+
+    /// A copy with `sample` appended (and the oldest evicted past the cap).
+    func adding(_ sample: VoiceSample) -> Voiceprint {
+        Voiceprint(id: id, name: name, samples: samples + [sample], redirectID: redirectID)
+    }
+
+    /// The tombstone this voiceprint leaves behind when merged into `survivorID`.
+    func redirected(to survivorID: String) -> Voiceprint {
+        Voiceprint(id: id, name: nil, samples: [], redirectID: survivorID)
+    }
+}
+
 extension Voiceprint {
     /// Follows `redirectID` chains to the surviving voiceprint after merges, or `nil` when the id is
     /// unknown or the chain breaks. Guards against cycles.
