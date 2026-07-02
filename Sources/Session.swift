@@ -26,6 +26,11 @@ struct Session {
         url.appendingPathComponent("speakers.json")
     }
 
+    /// The positional transcript segments stored in `transcript.json`.
+    func loadSegments() throws -> [TranscriptSegment] {
+        try JSONDecoder().decode([TranscriptSegment].self, from: Data(contentsOf: transcriptJSON))
+    }
+
     /// The `speakers.json` overlay keyed by speaker token, or empty when the session has none (a
     /// mic-only recording never writes it).
     func loadSpeakers() throws -> [String: SessionSpeaker] {

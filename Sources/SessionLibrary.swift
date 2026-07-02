@@ -50,10 +50,7 @@ final class SessionLibrary {
 
     func loadDetail(_ url: URL) throws -> SessionDetail {
         let session = Session(url: url)
-        let segments = try JSONDecoder().decode(
-            [TranscriptSegment].self, from: Data(contentsOf: session.transcriptJSON)
-        )
-        return try SessionDetail(url: url, segments: segments, overlay: session.loadSpeakers())
+        return try SessionDetail(url: url, segments: session.loadSegments(), overlay: session.loadSpeakers())
     }
 
     /// Counts, per surviving voiceprint id, how many recordings bind at least one speaker to it, so the

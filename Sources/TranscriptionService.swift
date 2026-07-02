@@ -98,9 +98,7 @@ struct TranscriptionService {
     ///   including merge tombstones, so redirects still resolve).
     static func rerenderTranscript(at sessionURL: URL, voiceprints: [Voiceprint]) throws {
         let session = Session(url: sessionURL)
-        let segments = try JSONDecoder().decode(
-            [TranscriptSegment].self, from: Data(contentsOf: session.transcriptJSON)
-        )
+        let segments = try session.loadSegments()
         let overlay = try session.loadSpeakers()
         let byID = Dictionary(voiceprints.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let names = SpeakerDisplay.names(overlay: overlay, voiceprints: byID)
