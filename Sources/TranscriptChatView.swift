@@ -19,21 +19,12 @@ struct TranscriptChatView: View {
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .navigationTitle(sessionTitle)
+            // A plain title: renaming lives in the sidebar row. The Binding form of navigationTitle
+            // never materializes macOS's rename affordance for this window shape, so offering it here
+            // would be dead weight.
+            .navigationTitle(model.currentTitle)
             .navigationSubtitle(model.currentSubtitle)
         }
-    }
-
-    /// The titlebar title doubles as the native rename affordance; committing an edit renames the
-    /// session, and `renameSession`'s guards drop a commit that leaves the shown text unchanged.
-    private var sessionTitle: Binding<String> {
-        Binding(
-            get: { model.currentTitle },
-            set: { newValue in
-                guard let url = model.selection else { return }
-                Task { await model.renameSession(url, to: newValue) }
-            }
-        )
     }
 }
 
